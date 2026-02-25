@@ -1,138 +1,228 @@
 {
   "kind": "build_request",
-  "title": "End-to-end transaction processing with order management",
+  "title": "Auction System with Bidding Logic & Timers + Barter/Trade Offer System",
   "projectName": "Fragrance.Intl Marketplace",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Extend the backend order data model and actor to support full order lifecycle transitions: pending → processing → shipped → delivered → cancelled. Expose update endpoints so that order status can be changed programmatically, and persist all status changes in stable storage.",
+      "text": "Extend the backend actor to support an Auction data model with fields: auctionId, productId, sellerId, startingPrice, currentBid, highestBidderId, bidHistory (array of {bidderId, amount, timestamp}), startTime, endTime, status (active | ended | cancelled), and winner. Provide functions: createAuction, placeBid (validates bid > currentBid and auction is active and not expired), cancelAuction, getAuction, listActiveAuctions, listAuctionsByVendor, and finalizeAuction (closes auction, sets winner, triggers payout record). Enforce that only the auction creator (vendor) or an admin can cancel or finalize an auction.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-4"
         ],
         "quotes": [
-          "Order management: placement, tracking, status updates"
+          "Auction system with bidding logic and timers"
         ]
       },
       "acceptanceCriteria": [
-        "Order status field supports at minimum: #pending, #processing, #shipped, #delivered, #cancelled variants.",
-        "A backend endpoint exists to update an order's status given an order ID and new status value.",
-        "Status changes are persisted across upgrades.",
-        "Only authorized callers (admin or the owning user for cancellation) can transition order status."
+        "createAuction stores a new auction with provided product, starting price, and duration",
+        "placeBid rejects bids lower than or equal to currentBid",
+        "placeBid rejects bids after endTime has passed",
+        "placeBid updates currentBid and highestBidderId and appends to bidHistory",
+        "finalizeAuction sets status to ended, records the winner, and creates a payout record for the vendor",
+        "listActiveAuctions returns only auctions with status=active and endTime in the future",
+        "Only auction creator or admin can call cancelAuction"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Implement end-to-end transaction processing in the backend: when a Stripe payment confirmation is received, atomically mark the associated order as #processing, record the confirmed payment details, and ensure the order cannot be double-confirmed.",
+      "text": "Extend the backend actor to support a Barter/Trade Offer data model with fields: offerId, initiatorId, receiverId, offeredItems (array of {productId, quantity}), requestedItems (array of {productId, quantity}), optionalCashAdjustment (Int), status (pending | accepted | rejected | cancelled | completed), createdAt, and updatedAt. Provide functions: createTradeOffer, acceptTradeOffer, rejectTradeOffer, cancelTradeOffer, counterTradeOffer (creates a new offer referencing the original), getTradeOffer, listTradeOffersForUser (incoming and outgoing), and listAllTradeOffers (admin/moderator only). Accept and complete a trade by swapping product ownership/inventory. Moderators and admins can view all offers and cancel any offer.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-4"
         ],
         "quotes": [
-          "Goal: End-to-end transaction processing"
+          "Barter/trade offer system between users, moderators and Admins"
         ]
       },
       "acceptanceCriteria": [
-        "Confirming a Stripe session ID transitions the linked order from #pending to #processing.",
-        "Re-confirming an already-confirmed session ID returns an error or a no-op result rather than updating the order again.",
-        "Payment session ID is stored on the order record after confirmation.",
-        "A query endpoint returns the full order details including payment status."
+        "createTradeOffer stores a new offer with initiator, receiver, offered items, and requested items",
+        "acceptTradeOffer updates status to accepted and triggers inventory transfer between parties",
+        "rejectTradeOffer updates status to rejected and notifies initiator",
+        "cancelTradeOffer is callable by initiator or admin/moderator",
+        "counterTradeOffer creates a new offer linked to the original with updated terms",
+        "listAllTradeOffers is restricted to admin and moderator roles",
+        "listTradeOffersForUser returns both incoming and outgoing offers for the calling user"
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Add a React Query hook (useUpdateOrderStatus) and a backend call to allow admin users to manually move an order through its status stages from the Admin Dashboard.",
-      "target": "both",
+      "text": "Create an Auctions listing page at /auctions that displays all active auctions in a grid. Each auction card shows the product image, product name, current highest bid, starting price, number of bids, and a live countdown timer that decrements in real time to the auction end time. Clicking a card navigates to the auction detail page. Add an 'Auctions' link to the site header navigation.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-4"
         ],
         "quotes": [
-          "Order management: placement, tracking, status updates"
+          "Auction system with bidding logic and timers"
         ]
       },
       "acceptanceCriteria": [
-        "useUpdateOrderStatus mutation hook is defined in useQueries.ts and calls the backend status-update endpoint.",
-        "Admin Dashboard page includes an order management section listing all orders with their current status.",
-        "Each order row exposes a status selector or action buttons to advance/cancel the order status.",
-        "Successful status update reflects immediately in the UI via query invalidation."
+        "Auctions page is accessible at /auctions",
+        "Each card shows current bid, time remaining (days/hours/minutes/seconds), and bid count",
+        "Countdown timer updates every second in real time",
+        "Auctions that have ended are visually marked as ended",
+        "Header navigation includes an 'Auctions' link",
+        "Page shows a loading skeleton while data is fetched"
       ]
     },
     {
       "id": "REQ-4",
-      "text": "Enhance the MyOrders page and OrderConfirmation page to display real-time order tracking information: current status badge, a visual status timeline (pending → processing → shipped → delivered), estimated stage labels, and a refresh/polling mechanism so status updates appear without a full page reload.",
+      "text": "Create an Auction Detail page at /auctions/$auctionId showing full auction info: product details, current highest bid, bid history list (bidder principal truncated, amount, timestamp), and a live countdown timer. Authenticated users can submit a bid via an input field and 'Place Bid' button. Display real-time feedback on bid success or failure (e.g., bid too low, auction ended). Show the winner and final price when the auction has ended.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-4"
         ],
         "quotes": [
-          "Order management: placement, tracking, status updates",
-          "Goal: End-to-end transaction processing"
+          "Auction system with bidding logic and timers"
         ]
       },
       "acceptanceCriteria": [
-        "MyOrders page shows a status badge for each order using the full status vocabulary (#pending, #processing, #shipped, #delivered, #cancelled).",
-        "OrderConfirmation page renders a horizontal or vertical status timeline that highlights the current stage.",
-        "Orders in active states (#pending, #processing, #shipped) are polled for status updates at a reasonable interval (e.g., every 30 seconds) using React Query's refetchInterval.",
-        "Cancelled orders are visually distinguished (e.g., muted or strikethrough style)."
+        "Route /auctions/$auctionId renders auction details",
+        "Bid input is disabled for unauthenticated users with a prompt to log in",
+        "Bid input is disabled and shows 'Auction Ended' when endTime has passed",
+        "Placing a bid below or equal to current bid shows an inline error",
+        "Successful bid updates the displayed current bid and bid history without full page reload",
+        "Ended auctions display winner principal and final bid amount",
+        "Countdown timer is visible and updates every second"
       ]
     },
     {
       "id": "REQ-5",
-      "text": "Update the PaymentSuccess page to call the payment confirmation endpoint after Stripe redirects back, update the linked order status to #processing, and display a confirmation summary with the updated order status before redirecting the user to the OrderConfirmation page.",
+      "text": "Add auction management capabilities to the Vendor Dashboard. Vendors can create a new auction by selecting one of their products, setting a starting price, and specifying auction duration (hours). Display a list of the vendor's auctions (active, ended, cancelled) with current bid, end time, and an option to cancel active auctions.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-4"
         ],
         "quotes": [
-          "Goal: End-to-end transaction processing"
+          "Auction system with bidding logic and timers"
         ]
       },
       "acceptanceCriteria": [
-        "On mount, PaymentSuccess page calls the confirmPayment backend endpoint with the Stripe session ID from the URL.",
-        "While confirming, a loading state is shown.",
-        "On success, the page displays a brief confirmation summary (order ID, status: Processing, item count, total) before navigating to /order/:id.",
-        "On error (e.g., already confirmed or session not found), a descriptive error message is shown with a link to MyOrders."
+        "Vendor Dashboard has an 'Auctions' section or tab",
+        "Create Auction form allows selecting a product, entering starting price, and setting duration",
+        "Vendor's auction list shows status, current bid, and countdown or end time",
+        "Cancel button is shown only for active auctions",
+        "Ended auctions display winner information"
       ]
     },
     {
       "id": "REQ-6",
-      "text": "Generate a migration module (migration.mo) that upgrades existing stored order records to include the new status variants and any new fields (e.g., paymentSessionId, statusHistory) added in REQ-1 and REQ-2, defaulting missing fields to safe initial values.",
-      "target": "backend",
+      "text": "Add auction oversight to the Admin Dashboard. Admins can view all auctions (active, ended, cancelled) in a table with vendor, product, current bid, end time, and status. Admins can cancel any active auction. Admins can manually trigger finalization of an ended auction that has not yet been finalized.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-4"
         ],
         "quotes": [
-          "Goal: End-to-end transaction processing",
-          "Order management: placement, tracking, status updates"
+          "Auction system with bidding logic and timers",
+          "moderators and Admins"
         ]
       },
       "acceptanceCriteria": [
-        "migration.mo transforms all existing order records to the new schema without data loss.",
-        "Orders that were previously paymentConfirmed=true are migrated to status #processing.",
-        "Orders without a prior payment confirmation default to status #pending.",
-        "All other order fields are passed through unchanged."
+        "Admin Dashboard includes an 'Auction Management' panel",
+        "Table lists all auctions with vendor, product, current bid, end time, status",
+        "Cancel action is available for active auctions",
+        "Finalize action is available for ended but unfinalized auctions",
+        "Actions reflect immediately in the table after completion"
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "text": "Create a Trade Offers page at /trade-offers for authenticated users. Display two tabs: 'Incoming Offers' (offers where the user is the receiver) and 'Outgoing Offers' (offers initiated by the user). Each offer card shows offered items, requested items, optional cash adjustment, status badge, and action buttons appropriate to role: receiver can Accept or Reject; initiator can Cancel; either party can Counter. Add a 'Trade Offers' link in the user profile dropdown menu or header navigation.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Barter/trade offer system between users, moderators and Admins"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Route /trade-offers is accessible only to authenticated users",
+        "Incoming and Outgoing tabs each show relevant offers",
+        "Status badge uses color coding: pending (yellow), accepted (green), rejected (red), cancelled (gray), completed (teal)",
+        "Accept, Reject, Cancel, and Counter actions are contextually shown per role",
+        "Counter offer opens a form pre-filled with the original offer's items for editing",
+        "Empty states are shown when no offers exist in each tab"
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "text": "Create a 'New Trade Offer' flow accessible from the product listing or a user's profile. Allow the initiator to select one or more of their own products to offer, specify which products and quantities they want in return (by product ID or search), optionally enter a cash adjustment amount, and select the receiving user (by principal or username). Submit creates the trade offer and shows a confirmation.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Barter/trade offer system between users"
+        ]
+      },
+      "acceptanceCriteria": [
+        "New Trade Offer form allows selecting offered products from the user's owned/purchased inventory",
+        "Requested items can be searched or entered by product ID",
+        "Optional cash adjustment field accepts positive or negative integers",
+        "Receiver selection accepts a valid principal ID",
+        "Form validates that at least one offered item and one requested item are present before submission",
+        "Submission success navigates to the Trade Offers page with a toast notification"
+      ]
+    },
+    {
+      "id": "REQ-9",
+      "text": "Add a Trade Offer management panel to the Admin Dashboard. Admins and moderators can view all trade offers across all users in a sortable table showing offer ID, initiator, receiver, status, offered items count, requested items count, and creation date. Admins and moderators can cancel any pending offer.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Barter/trade offer system between users, moderators and Admins"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Admin Dashboard includes a 'Trade Offer Management' panel",
+        "Table lists all trade offers with initiator, receiver, status, and timestamps",
+        "Cancel action is available for pending offers",
+        "Panel is visible to admin and moderator roles only",
+        "Table supports sorting by status and creation date"
+      ]
+    },
+    {
+      "id": "REQ-10",
+      "text": "Add React Query hooks in useQueries.ts for all new auction and trade offer backend functions: useListActiveAuctions, useGetAuction, useListAuctionsByVendor, useListAllAuctions (admin), useCreateAuction, usePlaceBid, useCancelAuction, useFinalizeAuction, useListTradeOffersForUser, useListAllTradeOffers (admin/moderator), useCreateTradeOffer, useAcceptTradeOffer, useRejectTradeOffer, useCancelTradeOffer, and useCounterTradeOffer.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Each hook correctly calls the corresponding backend actor function",
+        "Query hooks use appropriate cache keys and invalidation on mutation success",
+        "Mutation hooks expose isLoading, isError, and error states",
+        "useListActiveAuctions refetches on a short interval (e.g., every 30 seconds) to keep countdown data fresh"
       ]
     }
   ],
   "constraints": [
-    "All Motoko logic must remain in the single main actor (backend/main.mo).",
-    "Do not modify files listed in frontend.immutablePaths.",
-    "Preserve existing Stripe checkout session creation flow; only extend it, do not replace it.",
-    "Role-based access control must be enforced: only admins can update any order status; users can only cancel their own orders."
+    "All backend logic must remain in the single actor file backend/main.mo",
+    "Do not modify any files listed in frontend.immutablePaths",
+    "Auction timer countdown must be client-side only; backend stores endTime as a timestamp",
+    "Trade offer item transfers must validate that the initiator owns or has sufficient stock of offered items before accepting"
   ],
   "nonGoals": [
-    "Introducing a new payment provider or replacing Stripe.",
-    "Real-time WebSocket-based order updates (polling is acceptable).",
-    "Shipping carrier integration or live tracking numbers.",
-    "Email or push notification of status changes.",
-    "Changes to the vendor product management or approval workflow."
+    "Real-time WebSocket-based bid updates (polling is acceptable)",
+    "Email or push notifications for auction wins or trade offer events",
+    "Escrow or on-chain payment processing for trade offers",
+    "Auction reserve prices or buy-it-now pricing in this iteration",
+    "Public user profile pages for browsing another user's inventory"
   ],
   "imageRequirements": {
     "required": [],

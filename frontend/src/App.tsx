@@ -21,12 +21,17 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
 import MyOrders from './pages/MyOrders';
+import OrderReceipt from './pages/OrderReceipt';
 import VendorRegistration from './pages/VendorRegistration';
 import VendorDashboard from './pages/VendorDashboard';
 import VendorProducts from './pages/VendorProducts';
 import AdminDashboard from './pages/AdminDashboard';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
+import Auctions from './pages/Auctions';
+import AuctionDetail from './pages/AuctionDetail';
+import TradeOffers from './pages/TradeOffers';
+import NewTradeOffer from './pages/NewTradeOffer';
 
 // Layout wrapper with Header/Footer and profile setup
 function Layout() {
@@ -82,6 +87,12 @@ const orderConfirmationRoute = createRoute({
   component: OrderConfirmation,
 });
 
+const orderReceiptRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/order/$orderId/receipt',
+  component: OrderReceipt,
+});
+
 const myOrdersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/my-orders',
@@ -124,12 +135,37 @@ const paymentCancelRoute = createRoute({
   component: PaymentCancel,
 });
 
+const auctionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auctions',
+  component: Auctions,
+});
+
+const auctionDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auctions/$auctionId',
+  component: AuctionDetail,
+});
+
+const tradeOffersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/trade-offers',
+  component: TradeOffers,
+});
+
+const newTradeOfferRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/trade-offers/new',
+  component: NewTradeOffer,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   productsRoute,
   cartRoute,
   checkoutRoute,
   orderConfirmationRoute,
+  orderReceiptRoute,
   myOrdersRoute,
   vendorRegisterRoute,
   vendorDashboardRoute,
@@ -137,6 +173,10 @@ const routeTree = rootRoute.addChildren([
   adminRoute,
   paymentSuccessRoute,
   paymentCancelRoute,
+  auctionsRoute,
+  auctionDetailRoute,
+  tradeOffersRoute,
+  newTradeOfferRoute,
 ]);
 
 const router = createRouter({ routeTree });

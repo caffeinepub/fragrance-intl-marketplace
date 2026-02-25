@@ -41,6 +41,21 @@ export type PaymentStatus = { 'pending' : null } |
   { 'completed' : null } |
   { 'awaiting_payment' : null } |
   { 'failed' : null };
+export interface Payout {
+  'status' : PayoutStatus,
+  'netAmount' : bigint,
+  'createdAt' : bigint,
+  'grossAmount' : bigint,
+  'payoutId' : string,
+  'orderId' : string,
+  'updatedAt' : bigint,
+  'vendorId' : string,
+  'commissionAmount' : bigint,
+}
+export type PayoutStatus = { 'pending' : null } |
+  { 'completed' : null } |
+  { 'processing' : null } |
+  { 'failed' : null };
 export interface Product {
   'id' : string,
   'status' : ProductStatus,
@@ -83,6 +98,16 @@ export type StripeSessionStatus = {
     'completed' : { 'userPrincipal' : [] | [string], 'response' : string }
   } |
   { 'failed' : { 'error' : string } };
+export interface TransactionEntry {
+  'netPayout' : bigint,
+  'commissionFee' : bigint,
+  'orderId' : string,
+  'totalAmount' : bigint,
+  'vendor' : Principal,
+  'timestamp' : bigint,
+  'buyer' : Principal,
+  'items' : Array<CartItem>,
+}
 export interface TransformationInput {
   'context' : Uint8Array,
   'response' : http_request_result,
@@ -174,14 +199,22 @@ export interface _SERVICE {
   >,
   'deleteProduct' : ActorMethod<[string], undefined>,
   'getAllOrders' : ActorMethod<[], Array<Order>>,
+  'getAllPayouts' : ActorMethod<[], Array<Payout>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCart' : ActorMethod<[], Array<CartItem>>,
+  'getCommissionRate' : ActorMethod<[], bigint>,
   'getMyOrders' : ActorMethod<[], Array<Order>>,
   'getOrder' : ActorMethod<[string], Order>,
+  'getPayout' : ActorMethod<[string], [] | [Payout]>,
+  'getPayoutsForVendor' : ActorMethod<[string], Array<Payout>>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
+  'getTransaction' : ActorMethod<[string], [] | [TransactionEntry]>,
+  'getTransactionsByBuyer' : ActorMethod<[Principal], Array<TransactionEntry>>,
+  'getTransactionsByVendor' : ActorMethod<[Principal], Array<TransactionEntry>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getVendorProfile' : ActorMethod<[string], VendorProfile>,
+  'initiatePayout' : ActorMethod<[string], string>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerApproved' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
@@ -192,9 +225,11 @@ export interface _SERVICE {
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'searchProducts' : ActorMethod<[SearchFilter], Array<Product>>,
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
+  'setCommissionRate' : ActorMethod<[bigint], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
   'updateOrderStatus' : ActorMethod<[string, OrderStatus], undefined>,
+  'updatePayoutStatus' : ActorMethod<[string, PayoutStatus], undefined>,
   'updateProduct' : ActorMethod<
     [
       string,

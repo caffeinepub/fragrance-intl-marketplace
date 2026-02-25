@@ -35,6 +35,17 @@ export interface TransformationOutput {
     body: Uint8Array;
     headers: Array<http_header>;
 }
+export interface Payout {
+    status: PayoutStatus;
+    netAmount: bigint;
+    createdAt: bigint;
+    grossAmount: bigint;
+    payoutId: string;
+    orderId: string;
+    updatedAt: bigint;
+    vendorId: string;
+    commissionAmount: bigint;
+}
 export interface SearchFilter {
     sortBy?: Variant_quantityDesc_priceDesc_priceAsc;
     productType?: ProductType;
@@ -76,6 +87,16 @@ export interface ShoppingItem {
     quantity: bigint;
     priceInCents: bigint;
     productDescription: string;
+}
+export interface TransactionEntry {
+    netPayout: bigint;
+    commissionFee: bigint;
+    orderId: string;
+    totalAmount: bigint;
+    vendor: Principal;
+    timestamp: bigint;
+    buyer: Principal;
+    items: Array<CartItem>;
 }
 export interface TransformationInput {
     context: Uint8Array;
@@ -130,6 +151,12 @@ export enum PaymentStatus {
     awaiting_payment = "awaiting_payment",
     failed = "failed"
 }
+export enum PayoutStatus {
+    pending = "pending",
+    completed = "completed",
+    processing = "processing",
+    failed = "failed"
+}
 export enum ProductStatus {
     active = "active",
     inactive = "inactive"
@@ -158,14 +185,22 @@ export interface backendInterface {
     createVendorProfile(id: string, name: string, description: string, logo: ExternalBlob | null, contact: string): Promise<void>;
     deleteProduct(id: string): Promise<void>;
     getAllOrders(): Promise<Array<Order>>;
+    getAllPayouts(): Promise<Array<Payout>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCart(): Promise<Array<CartItem>>;
+    getCommissionRate(): Promise<bigint>;
     getMyOrders(): Promise<Array<Order>>;
     getOrder(orderId: string): Promise<Order>;
+    getPayout(payoutId: string): Promise<Payout | null>;
+    getPayoutsForVendor(vendorId: string): Promise<Array<Payout>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
+    getTransaction(orderId: string): Promise<TransactionEntry | null>;
+    getTransactionsByBuyer(buyer: Principal): Promise<Array<TransactionEntry>>;
+    getTransactionsByVendor(vendor: Principal): Promise<Array<TransactionEntry>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     getVendorProfile(id: string): Promise<VendorProfile>;
+    initiatePayout(orderId: string): Promise<string>;
     isCallerAdmin(): Promise<boolean>;
     isCallerApproved(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
@@ -176,9 +211,11 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     searchProducts(filter: SearchFilter): Promise<Array<Product>>;
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
+    setCommissionRate(rate: bigint): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
     updateOrderStatus(orderId: string, newStatus: OrderStatus): Promise<void>;
+    updatePayoutStatus(payoutId: string, status: PayoutStatus): Promise<void>;
     updateProduct(id: string, title: string, description: string, price: bigint, category: string, productType: ProductType, stock: bigint, image: ExternalBlob | null): Promise<void>;
     updateVendorProfile(id: string, name: string, description: string, logo: ExternalBlob | null, contact: string): Promise<void>;
 }

@@ -1,32 +1,72 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "E-commerce/transaction processing project focused on end-to-end transaction processing and order management including placement, tracking, and status updates.",
+  "summary": "Project is expanding to include an Auction system with bidding logic and timers, and a Barter/trade offer system between users, moderators, and admins.",
   "architectural_notes": [],
   "known_issues": [],
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-add-a-react-query-hook-useupdateorderstatus-and-a-backend-call-to-allow-admin-users-to-manually-move-an-order-through-its-status-stages-from-the-admin-dashboard",
-      "title": "Add a React Query hook (useUpdateOrderStatus) and a backend call to allow admin users to manually move an order through its status stages from the Admin Dashboard.",
+      "id": "feature-create-an-auctions-listing-page-at-auctions-that-displays-all-active-auctions-in-a-grid-each-auction-card-shows-the-product-image-product-name-current-highest-bid-starting-price-number-of-bids-and-a-live-countdown-timer-that-decrements-in-real-time-to-the-auction-end-time-clicking-a-card-navigates-to-the-auction-detail-page-add-an-auctions-link-to-the-site-header-navigation",
+      "title": "Create an Auctions listing page at /auctions that displays all active auctions in a grid. Each auction card shows the product image, product name, current highest bid, starting price, number of bids, and a live countdown timer that decrements in real time to the auction end time. Clicking a card navigates to the auction detail page. Add an 'Auctions' link to the site header navigation.",
       "reqIds": [
         "REQ-3"
       ],
       "version": 1
     },
     {
-      "id": "feature-enhance-the-myorders-page-and-orderconfirmation-page-to-display-real-time-order-tracking-information-current-status-badge-a-visual-status-timeline-pending-processing-shipped-delivered-estimated-stage-labels-and-a-refresh-polling-mechanism-so-status-updates-appear-without-a-full-page-reload",
-      "title": "Enhance the MyOrders page and OrderConfirmation page to display real-time order tracking information: current status badge, a visual status timeline (pending → processing → shipped → delivered), estimated stage labels, and a refresh/polling mechanism so status updates appear without a full page reload.",
+      "id": "feature-create-an-auction-detail-page-at-auctions-auctionid-showing-full-auction-info-product-details-current-highest-bid-bid-history-list-bidder-principal-truncated-amount-timestamp-and-a-live-countdown-timer-authenticated-users-can-submit-a-bid-via-an-input-field-and-place-bid-button-display-real-time-feedback-on-bid-success-or-failure-e-g-bid-too-low-auction-ended-show-the-winner-and-final-price-when-the-auction-has-ended",
+      "title": "Create an Auction Detail page at /auctions/$auctionId showing full auction info: product details, current highest bid, bid history list (bidder principal truncated, amount, timestamp), and a live countdown timer. Authenticated users can submit a bid via an input field and 'Place Bid' button. Display real-time feedback on bid success or failure (e.g., bid too low, auction ended). Show the winner and final price when the auction has ended.",
       "reqIds": [
         "REQ-4"
       ],
       "version": 1
     },
     {
-      "id": "feature-update-the-paymentsuccess-page-to-call-the-payment-confirmation-endpoint-after-stripe-redirects-back-update-the-linked-order-status-to-processing-and-display-a-confirmation-summary-with-the-updated-order-status-before-redirecting-the-user-to-the-orderconfirmation-page",
-      "title": "Update the PaymentSuccess page to call the payment confirmation endpoint after Stripe redirects back, update the linked order status to #processing, and display a confirmation summary with the updated order status before redirecting the user to the OrderConfirmation page.",
+      "id": "feature-add-auction-management-capabilities-to-the-vendor-dashboard-vendors-can-create-a-new-auction-by-selecting-one-of-their-products-setting-a-starting-price-and-specifying-auction-duration-hours-display-a-list-of-the-vendor-s-auctions-active-ended-cancelled-with-current-bid-end-time-and-an-option-to-cancel-active-auctions",
+      "title": "Add auction management capabilities to the Vendor Dashboard. Vendors can create a new auction by selecting one of their products, setting a starting price, and specifying auction duration (hours). Display a list of the vendor's auctions (active, ended, cancelled) with current bid, end time, and an option to cancel active auctions.",
       "reqIds": [
         "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-auction-oversight-to-the-admin-dashboard-admins-can-view-all-auctions-active-ended-cancelled-in-a-table-with-vendor-product-current-bid-end-time-and-status-admins-can-cancel-any-active-auction-admins-can-manually-trigger-finalization-of-an-ended-auction-that-has-not-yet-been-finalized",
+      "title": "Add auction oversight to the Admin Dashboard. Admins can view all auctions (active, ended, cancelled) in a table with vendor, product, current bid, end time, and status. Admins can cancel any active auction. Admins can manually trigger finalization of an ended auction that has not yet been finalized.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-trade-offers-page-at-trade-offers-for-authenticated-users-display-two-tabs-incoming-offers-offers-where-the-user-is-the-receiver-and-outgoing-offers-offers-initiated-by-the-user-each-offer-card-shows-offered-items-requested-items-optional-cash-adjustment-status-badge-and-action-buttons-appropriate-to-role-receiver-can-accept-or-reject-initiator-can-cancel-either-party-can-counter-add-a-trade-offers-link-in-the-user-profile-dropdown-menu-or-header-navigation",
+      "title": "Create a Trade Offers page at /trade-offers for authenticated users. Display two tabs: 'Incoming Offers' (offers where the user is the receiver) and 'Outgoing Offers' (offers initiated by the user). Each offer card shows offered items, requested items, optional cash adjustment, status badge, and action buttons appropriate to role: receiver can Accept or Reject; initiator can Cancel; either party can Counter. Add a 'Trade Offers' link in the user profile dropdown menu or header navigation.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-new-trade-offer-flow-accessible-from-the-product-listing-or-a-user-s-profile-allow-the-initiator-to-select-one-or-more-of-their-own-products-to-offer-specify-which-products-and-quantities-they-want-in-return-by-product-id-or-search-optionally-enter-a-cash-adjustment-amount-and-select-the-receiving-user-by-principal-or-username-submit-creates-the-trade-offer-and-shows-a-confirmation",
+      "title": "Create a 'New Trade Offer' flow accessible from the product listing or a user's profile. Allow the initiator to select one or more of their own products to offer, specify which products and quantities they want in return (by product ID or search), optionally enter a cash adjustment amount, and select the receiving user (by principal or username). Submit creates the trade offer and shows a confirmation.",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-trade-offer-management-panel-to-the-admin-dashboard-admins-and-moderators-can-view-all-trade-offers-across-all-users-in-a-sortable-table-showing-offer-id-initiator-receiver-status-offered-items-count-requested-items-count-and-creation-date-admins-and-moderators-can-cancel-any-pending-offer",
+      "title": "Add a Trade Offer management panel to the Admin Dashboard. Admins and moderators can view all trade offers across all users in a sortable table showing offer ID, initiator, receiver, status, offered items count, requested items count, and creation date. Admins and moderators can cancel any pending offer.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-react-query-hooks-in-usequeries-ts-for-all-new-auction-and-trade-offer-backend-functions-uselistactiveauctions-usegetauction-uselistauctionsbyvendor-uselistallauctions-admin-usecreateauction-useplacebid-usecancelauction-usefinalizeauction-uselisttradeoffersforuser-uselistalltradeoffers-admin-moderator-usecreatetradeoffer-useaccepttradeoffer-userejecttradeoffer-usecanceltradeoffer-and-usecountertradeoffer",
+      "title": "Add React Query hooks in useQueries.ts for all new auction and trade offer backend functions: useListActiveAuctions, useGetAuction, useListAuctionsByVendor, useListAllAuctions (admin), useCreateAuction, usePlaceBid, useCancelAuction, useFinalizeAuction, useListTradeOffersForUser, useListAllTradeOffers (admin/moderator), useCreateTradeOffer, useAcceptTradeOffer, useRejectTradeOffer, useCancelTradeOffer, and useCounterTradeOffer.",
+      "reqIds": [
+        "REQ-10"
       ],
       "version": 1
     }
@@ -34,19 +74,19 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "End-to-end transaction processing",
+      "summary": "Auction system with bidding logic and countdown timers",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Order management: placement, tracking, and status updates",
+      "summary": "Barter/trade offer system between users, moderators, and admins",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-3",
-      "summary": "Extend the backend order data model and actor to support full order lifecycle transitions: pending → processing → shipped → delivered → cancelled. Expose update endpoints so that order status can be changed programmatically, and persist all status changes in stable storage.",
+      "summary": "Extend the backend actor to support an Auction data model with fields: auctionId, productId, sellerId, startingPrice, currentBid, highestBidderId, bidHistory (array of {bidderId, amount, timestamp}), startTime, endTime, status (active | ended | cancelled), and winner. Provide functions: createAuction, placeBid (validates bid > currentBid and auction is active and not expired), cancelAuction, getAuction, listActiveAuctions, listAuctionsByVendor, and finalizeAuction (closes auction, sets winner, triggers payout record). Enforce that only the auction creator (vendor) or an admin can cancel or finalize an auction.",
       "reqIds": [
         "REQ-1"
       ],
@@ -54,22 +94,13 @@
     },
     {
       "id": "AR-4",
-      "summary": "Implement end-to-end transaction processing in the backend: when a Stripe payment confirmation is received, atomically mark the associated order as #processing, record the confirmed payment details, and ensure the order cannot be double-confirmed.",
+      "summary": "Extend the backend actor to support a Barter/Trade Offer data model with fields: offerId, initiatorId, receiverId, offeredItems (array of {productId, quantity}), requestedItems (array of {productId, quantity}), optionalCashAdjustment (Int), status (pending | accepted | rejected | cancelled | completed), createdAt, and updatedAt. Provide functions: createTradeOffer, acceptTradeOffer, rejectTradeOffer, cancelTradeOffer, counterTradeOffer (creates a new offer referencing the original), getTradeOffer, listTradeOffersForUser (incoming and outgoing), and listAllTradeOffers (admin/moderator only). Accept and complete a trade by swapping product ownership/inventory. Moderators and admins can view all offers and cancel any offer.",
       "reqIds": [
         "REQ-2"
       ],
       "status": "pending"
-    },
-    {
-      "id": "AR-8",
-      "summary": "Generate a migration module (migration.mo) that upgrades existing stored order records to include the new status variants and any new fields (e.g., paymentSessionId, statusHistory) added in REQ-1 and REQ-2, defaulting missing fields to safe initial values.",
-      "reqIds": [
-        "REQ-6"
-      ],
-      "status": "pending"
     }
   ],
-  "gameProjectType": "none",
   "projectName": "Fragrance.Intl Marketplace",
   "clarification_mode": "instant",
   "clarification_rounds": 0

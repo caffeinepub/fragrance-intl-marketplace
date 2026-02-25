@@ -1,101 +1,258 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "End-to-end transaction processing with order management",
+  "title": "Auction System with Bidding Logic & Timers + Barter/Trade Offer System",
   "requirements": [
     {
       "id": "REQ-3",
-      "summary": "Add order status update capability for admin users via the Admin Dashboard",
+      "summary": "Create an Auctions listing page at /auctions that displays all active auctions in a grid with live countdown timers",
       "acceptanceCriteria": [
-        "useUpdateOrderStatus mutation hook is defined in useQueries.ts and calls the backend status-update endpoint.",
-        "Admin Dashboard page includes an order management section listing all orders with their current status.",
-        "Each order row exposes a status selector or action buttons to advance/cancel the order status.",
-        "Successful status update reflects immediately in the UI via query invalidation."
+        "Auctions page is accessible at /auctions",
+        "Each card shows current bid, time remaining (days/hours/minutes/seconds), and bid count",
+        "Countdown timer updates every second in real time",
+        "Auctions that have ended are visually marked as ended",
+        "Header navigation includes an 'Auctions' link",
+        "Page shows a loading skeleton while data is fetched"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Add useUpdateOrderStatus mutation hook that calls the backend updateOrderStatus capability and invalidates the 'allOrders' and 'myOrders' query keys on success. Accept orderId and newStatus (OrderStatus enum) as parameters."
-        },
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Add useGetAllOrders query hook that calls the backend getAllOrders capability and returns all orders across all users for admin dashboard display. Use query key 'allOrders'."
-        },
-        {
-          "path": "frontend/src/components/admin/OrderManagementPanel.tsx",
+          "path": "frontend/src/pages/Auctions.tsx",
           "operation": "create",
-          "description": "Create an order management panel component for admins. Display all orders using useGetAllOrders hook in a table showing order ID, customer principal (truncated), status badge, total, item count, and created date. For each order, render a dropdown or button group to change status between pending/processing/shipped/delivered/canceled using useUpdateOrderStatus mutation. Show loading states during status updates. Include filters to view orders by status."
+          "description": "Create a page component that fetches active auctions using useListActiveAuctions hook and renders them in a responsive grid. Include loading skeletons and empty state when no auctions exist."
         },
         {
-          "path": "frontend/src/pages/AdminDashboard.tsx",
+          "path": "frontend/src/components/auctions/AuctionCard.tsx",
+          "operation": "create",
+          "description": "Create a card component displaying product image from frontend/public/assets/generated/product-placeholder.dim_600x600.png as fallback, product name, current highest bid, starting price, bid count, and a live countdown timer using React hooks (useEffect with setInterval) that updates every second. Mark ended auctions visually with badge or overlay. Card is clickable and navigates to /auctions/$auctionId."
+        },
+        {
+          "path": "frontend/src/components/auctions/AuctionGrid.tsx",
+          "operation": "create",
+          "description": "Create a grid container component that renders multiple AuctionCard components in a responsive grid layout, with loading skeleton states."
+        },
+        {
+          "path": "frontend/src/components/layout/Header.tsx",
           "operation": "modify",
-          "description": "Import and render the OrderManagementPanel component below the existing ApprovalDashboard. Add a section heading 'Order Management' with appropriate spacing. Ensure the page remains admin-only gated."
+          "description": "Add an 'Auctions' navigation link to the desktop and mobile navigation menus that routes to /auctions."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Register route /auctions that renders the Auctions page component in the TanStack Router configuration."
         }
       ]
     },
     {
       "id": "REQ-4",
-      "summary": "Enhance MyOrders and OrderConfirmation pages with real-time order tracking and status timeline",
+      "summary": "Create an Auction Detail page at /auctions/$auctionId with full auction info, bid history, live countdown, and bid submission form",
       "acceptanceCriteria": [
-        "MyOrders page shows a status badge for each order using the full status vocabulary (#pending, #processing, #shipped, #delivered, #cancelled).",
-        "OrderConfirmation page renders a horizontal or vertical status timeline that highlights the current stage.",
-        "Orders in active states (#pending, #processing, #shipped) are polled for status updates at a reasonable interval (e.g., every 30 seconds) using React Query's refetchInterval.",
-        "Cancelled orders are visually distinguished (e.g., muted or strikethrough style)."
+        "Route /auctions/$auctionId renders auction details",
+        "Bid input is disabled for unauthenticated users with a prompt to log in",
+        "Bid input is disabled and shows 'Auction Ended' when endTime has passed",
+        "Placing a bid below or equal to current bid shows an inline error",
+        "Successful bid updates the displayed current bid and bid history without full page reload",
+        "Ended auctions display winner principal and final bid amount",
+        "Countdown timer is visible and updates every second"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/orders/OrderStatusBadge.tsx",
+          "path": "frontend/src/pages/AuctionDetail.tsx",
           "operation": "create",
-          "description": "Create a reusable OrderStatusBadge component that accepts an OrderStatus enum value and renders a styled badge with appropriate color coding: pending (yellow/amber), processing (blue), shipped (purple), delivered (green), canceled (gray/muted). Use Tailwind CSS classes for styling."
+          "description": "Create a page component that extracts auctionId from route params, fetches auction data using useGetAuction hook, and displays full product details, current bid, winner info (if ended), bid history list, and live countdown timer. Show loading skeleton during fetch."
         },
         {
-          "path": "frontend/src/components/orders/OrderStatusTimeline.tsx",
+          "path": "frontend/src/components/auctions/BidForm.tsx",
           "operation": "create",
-          "description": "Create an OrderStatusTimeline component that displays a horizontal or vertical progress timeline showing pending → processing → shipped → delivered stages. Accept currentStatus as a prop and highlight completed stages with check icons, the current stage with emphasis, and future stages in muted style. If status is canceled, show all stages as muted with a cancellation indicator. Use icons from lucide-react or similar."
+          "description": "Create a form component with a controlled input for bid amount and a 'Place Bid' button. Disable and show appropriate messages for unauthenticated users or ended auctions. Use usePlaceBid mutation hook with optimistic update and error handling for validation failures (bid too low, auction ended). Show inline validation errors and success toast on successful bid."
         },
         {
-          "path": "frontend/src/pages/MyOrders.tsx",
-          "operation": "modify",
-          "description": "Import and use OrderStatusBadge component for each order row. Replace any existing status text rendering with the badge component. Add visual treatment for canceled orders (muted text color, reduced opacity). Enable refetchInterval of 30000ms (30 seconds) in the useGetMyOrders query for orders with active statuses (pending, processing, shipped)."
+          "path": "frontend/src/components/auctions/BidHistoryList.tsx",
+          "operation": "create",
+          "description": "Create a list component that displays bid history entries with bidder principal (truncated to first 8 and last 4 characters), bid amount formatted as currency, and timestamp formatted as relative time. Show empty state when no bids exist."
         },
         {
-          "path": "frontend/src/pages/OrderConfirmation.tsx",
-          "operation": "modify",
-          "description": "Import and render the OrderStatusTimeline component prominently near the top of the order details section. Replace or supplement the existing status display with both the timeline and an OrderStatusBadge. Enable refetchInterval of 30000ms in the useGetOrder query if the order status is pending, processing, or shipped. Stop polling for delivered or canceled orders."
+          "path": "frontend/src/components/auctions/AuctionCountdown.tsx",
+          "operation": "create",
+          "description": "Create a reusable countdown timer component that accepts endTime timestamp and displays remaining time in days, hours, minutes, and seconds format, updating every second via useEffect/setInterval. Show 'Ended' state when time has passed."
         },
         {
-          "path": "frontend/src/hooks/useQueries.ts",
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Update useGetMyOrders and useGetOrder hooks to conditionally apply refetchInterval. For useGetMyOrders, only enable polling if at least one order is in an active state (pending, processing, shipped). For useGetOrder, accept the order status and enable refetchInterval: 30000 only for active states."
+          "description": "Register route /auctions/$auctionId that renders the AuctionDetail page component in the TanStack Router configuration."
         }
       ]
     },
     {
       "id": "REQ-5",
-      "summary": "Update PaymentSuccess page to confirm payment and display order status before redirecting",
+      "summary": "Add auction management capabilities to the Vendor Dashboard for creating and managing auctions",
       "acceptanceCriteria": [
-        "On mount, PaymentSuccess page calls the confirmPayment backend endpoint with the Stripe session ID from the URL.",
-        "While confirming, a loading state is shown.",
-        "On success, the page displays a brief confirmation summary (order ID, status: Processing, item count, total) before navigating to /order/:id.",
-        "On error (e.g., already confirmed or session not found), a descriptive error message is shown with a link to MyOrders."
+        "Vendor Dashboard has an 'Auctions' section or tab",
+        "Create Auction form allows selecting a product, entering starting price, and setting duration",
+        "Vendor's auction list shows status, current bid, and countdown or end time",
+        "Cancel button is shown only for active auctions",
+        "Ended auctions display winner information"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/vendor/VendorAuctionsPanel.tsx",
+          "operation": "create",
+          "description": "Create a panel component that displays the vendor's auctions using useListAuctionsByVendor hook. Show a table or card list with auction status, current bid, countdown timer for active auctions, end time for ended auctions, and winner info when available. Include a 'Create Auction' button that opens the create form dialog. For active auctions, show a cancel button that calls useCancelAuction mutation with confirmation dialog."
+        },
+        {
+          "path": "frontend/src/components/vendor/CreateAuctionForm.tsx",
+          "operation": "create",
+          "description": "Create a form component with product select dropdown (populated from vendor's products), starting price input, and auction duration input (in hours). Use useCreateAuction mutation hook to submit. Show validation errors and success toast. Close dialog on successful creation."
+        },
+        {
+          "path": "frontend/src/pages/VendorDashboard.tsx",
+          "operation": "modify",
+          "description": "Add VendorAuctionsPanel component as a new section or tab in the vendor dashboard layout, positioned after the product management link and before payouts panel."
+        }
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "summary": "Add auction oversight to the Admin Dashboard for viewing and managing all auctions",
+      "acceptanceCriteria": [
+        "Admin Dashboard includes an 'Auction Management' panel",
+        "Table lists all auctions with vendor, product, current bid, end time, status",
+        "Cancel action is available for active auctions",
+        "Finalize action is available for ended but unfinalized auctions",
+        "Actions reflect immediately in the table after completion"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/admin/AuctionManagementPanel.tsx",
+          "operation": "create",
+          "description": "Create an admin panel component that fetches all auctions using useListAllAuctions hook and displays them in a sortable table with columns for vendor principal (truncated), product name, current bid, end time, and status badge. Include action buttons: Cancel for active auctions (calls useCancelAuction with admin privileges) and Finalize for ended unfinalized auctions (calls useFinalizeAuction). Show loading skeleton and handle errors with toast notifications. Refetch data after successful actions."
+        },
+        {
+          "path": "frontend/src/components/auctions/AuctionStatusBadge.tsx",
+          "operation": "create",
+          "description": "Create a badge component that renders color-coded labels for auction status values (active: green, ended: blue, cancelled: gray) similar to OrderStatusBadge pattern."
+        },
+        {
+          "path": "frontend/src/pages/AdminDashboard.tsx",
+          "operation": "modify",
+          "description": "Add AuctionManagementPanel component as a new section in the admin dashboard, positioned after the PayoutManagementPanel."
+        }
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "summary": "Create a Trade Offers page at /trade-offers with incoming and outgoing tabs showing trade offer cards with contextual actions",
+      "acceptanceCriteria": [
+        "Route /trade-offers is accessible only to authenticated users",
+        "Incoming and Outgoing tabs each show relevant offers",
+        "Status badge uses color coding: pending (yellow), accepted (green), rejected (red), cancelled (gray), completed (teal)",
+        "Accept, Reject, Cancel, and Counter actions are contextually shown per role",
+        "Counter offer opens a form pre-filled with the original offer's items for editing",
+        "Empty states are shown when no offers exist in each tab"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/TradeOffers.tsx",
+          "operation": "create",
+          "description": "Create a page component that requires authentication (redirect to login if not authenticated). Display two tabs using shadcn/ui Tabs component: 'Incoming Offers' and 'Outgoing Offers'. Fetch offers using useListTradeOffersForUser hook and filter into incoming (where user is receiver) and outgoing (where user is initiator) arrays. Render TradeOfferGrid for each tab with appropriate empty states."
+        },
+        {
+          "path": "frontend/src/components/trade/TradeOfferCard.tsx",
+          "operation": "create",
+          "description": "Create a card component displaying offered items list (product names and quantities), requested items list, optional cash adjustment (formatted as currency with + or - sign), status badge, and contextual action buttons. For incoming offers where user is receiver and status is pending: show Accept and Reject buttons. For outgoing offers where user is initiator and status is pending: show Cancel button. For any pending offer: show Counter button. All buttons use appropriate mutation hooks (useAcceptTradeOffer, useRejectTradeOffer, useCancelTradeOffer, and open CounterOfferForm dialog). Show confirmation dialogs for destructive actions."
+        },
+        {
+          "path": "frontend/src/components/trade/TradeOfferGrid.tsx",
+          "operation": "create",
+          "description": "Create a grid container component that renders multiple TradeOfferCard components in a responsive grid layout with loading skeletons and empty state message when no offers exist."
+        },
+        {
+          "path": "frontend/src/components/trade/TradeOfferStatusBadge.tsx",
+          "operation": "create",
+          "description": "Create a badge component that renders color-coded labels for trade offer status: pending (yellow/amber), accepted (green), rejected (red), cancelled (gray), completed (teal/cyan)."
+        },
+        {
+          "path": "frontend/src/components/layout/Header.tsx",
+          "operation": "modify",
+          "description": "Add a 'Trade Offers' link to the authenticated user profile dropdown menu that navigates to /trade-offers, positioned after 'My Orders' link."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Register route /trade-offers that renders the TradeOffers page component in the TanStack Router configuration."
+        }
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "summary": "Create a 'New Trade Offer' flow for initiating trade offers with product selection and receiver specification",
+      "acceptanceCriteria": [
+        "New Trade Offer form allows selecting offered products from the user's owned/purchased inventory",
+        "Requested items can be searched or entered by product ID",
+        "Optional cash adjustment field accepts positive or negative integers",
+        "Receiver selection accepts a valid principal ID",
+        "Form validates that at least one offered item and one requested item are present before submission",
+        "Submission success navigates to the Trade Offers page with a toast notification"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/trade/NewTradeOfferForm.tsx",
+          "operation": "create",
+          "description": "Create a multi-section form component with: 1) Offered items section with product multi-select (from user's inventory/purchased products) and quantity inputs. 2) Requested items section with product search/select and quantity inputs. 3) Optional cash adjustment input accepting positive or negative integers. 4) Receiver principal ID input with validation. Include form validation requiring at least one offered and one requested item. Use useCreateTradeOffer mutation hook to submit. Navigate to /trade-offers with success toast on completion."
+        },
+        {
+          "path": "frontend/src/pages/NewTradeOffer.tsx",
+          "operation": "create",
+          "description": "Create a page component that requires authentication and renders the NewTradeOfferForm component with appropriate page layout and heading."
+        },
+        {
+          "path": "frontend/src/pages/TradeOffers.tsx",
+          "operation": "modify",
+          "description": "Add a 'Create Trade Offer' button in the page header that navigates to /trade-offers/new route."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Register route /trade-offers/new that renders the NewTradeOffer page component in the TanStack Router configuration."
+        }
+      ]
+    },
+    {
+      "id": "REQ-9",
+      "summary": "Add a Trade Offer management panel to the Admin Dashboard for viewing and managing all trade offers",
+      "acceptanceCriteria": [
+        "Admin Dashboard includes a 'Trade Offer Management' panel",
+        "Table lists all trade offers with initiator, receiver, status, and timestamps",
+        "Cancel action is available for pending offers",
+        "Panel is visible to admin and moderator roles only",
+        "Table supports sorting by status and creation date"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/admin/TradeOfferManagementPanel.tsx",
+          "operation": "create",
+          "description": "Create an admin panel component that fetches all trade offers using useListAllTradeOffers hook (admin/moderator only) and displays them in a sortable table with columns for offer ID, initiator principal (truncated), receiver principal (truncated), status badge, offered items count, requested items count, and creation date (formatted). Include a Cancel action button for pending offers that calls useCancelTradeOffer mutation. Support sorting by status and creation date. Show loading skeleton and handle errors with toast notifications."
+        },
+        {
+          "path": "frontend/src/pages/AdminDashboard.tsx",
+          "operation": "modify",
+          "description": "Add TradeOfferManagementPanel component as a new section in the admin dashboard, positioned after the AuctionManagementPanel."
+        }
+      ]
+    },
+    {
+      "id": "REQ-10",
+      "summary": "Add React Query hooks for all auction and trade offer backend capabilities",
+      "acceptanceCriteria": [
+        "Each hook correctly calls the corresponding backend actor function",
+        "Query hooks use appropriate cache keys and invalidation on mutation success",
+        "Mutation hooks expose isLoading, isError, and error states",
+        "useListActiveAuctions refetches on a short interval (e.g., every 30 seconds) to keep countdown data fresh"
       ],
       "file_operations": [
         {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Add useConfirmPayment mutation hook that accepts a sessionId string, calls the backend getStripeSessionStatus capability to validate the session, parses the StripeSessionStatus response, and extracts the order ID from the completed response. On success, invalidate 'myOrders' and 'order' query keys. Return the parsed order data or throw an error for failed status."
-        },
-        {
-          "path": "frontend/src/pages/PaymentSuccess.tsx",
-          "operation": "modify",
-          "description": "On component mount, extract the session_id URL parameter using the urlParams utility. Call useConfirmPayment mutation with the session ID. Show a loading spinner and 'Confirming your payment...' message while the mutation is pending. On success, display a confirmation card showing the order ID, status badge (Processing), item count, and total. After 2-3 seconds or on user click, navigate to /order/:orderId using TanStack Router. On error, display an error alert with the error message and a link to /my-orders. Handle the case where session_id is missing with a clear error message."
-        },
-        {
-          "path": "frontend/src/utils/urlParams.ts",
-          "operation": "modify",
-          "description": "Add a helper function getSessionIdFromUrl() that extracts the session_id parameter from the current URL query string (for both standard query params and hash-based routing). Return the session ID string or null if not found."
+          "description": "Add React Query hooks for auction operations: useListActiveAuctions (with refetchInterval: 30000 for fresh countdown data), useGetAuction (queryKey: ['auction', auctionId]), useListAuctionsByVendor (queryKey: ['vendorAuctions', vendorId]), useListAllAuctions (queryKey: ['allAuctions'], admin only), useCreateAuction (mutation, invalidates vendorAuctions and allAuctions), usePlaceBid (mutation, invalidates specific auction query and activeAuctions), useCancelAuction (mutation, invalidates relevant auction queries), useFinalizeAuction (mutation, invalidates relevant auction queries). Add hooks for trade offer operations: useListTradeOffersForUser (queryKey: ['tradeOffers', userId]), useListAllTradeOffers (queryKey: ['allTradeOffers'], admin/moderator only), useCreateTradeOffer (mutation, invalidates tradeOffers), useAcceptTradeOffer (mutation, invalidates tradeOffers and allTradeOffers), useRejectTradeOffer (mutation, invalidates tradeOffers), useCancelTradeOffer (mutation, invalidates tradeOffers and allTradeOffers), useCounterTradeOffer (mutation, invalidates tradeOffers and allTradeOffers). All mutations include proper error handling, loading states, and success toast notifications."
         }
       ]
     }

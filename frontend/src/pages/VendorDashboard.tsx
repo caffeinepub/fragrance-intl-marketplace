@@ -1,24 +1,22 @@
 import React from 'react';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useIsCallerApproved, useGetCallerUserProfile } from '../hooks/useQueries';
+import { useIsCallerApproved, useGetCallerUserProfile, useGetVendorProfile } from '../hooks/useQueries';
 import AccessDenied from '../components/common/AccessDenied';
 import VendorProfileEditor from '../components/vendor/VendorProfileEditor';
+import VendorPayoutsPanel from '../components/vendor/VendorPayoutsPanel';
+import VendorOrderHistory from '../components/vendor/VendorOrderHistory';
+import VendorAuctionsPanel from '../components/vendor/VendorAuctionsPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
 import { Store, Package, ArrowRight } from 'lucide-react';
-import { useGetVendorProfile } from '../hooks/useQueries';
 import { useInternetIdentity as useII } from '../hooks/useInternetIdentity';
 
 function VendorDashboardContent() {
   const { identity } = useII();
   const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
 
-  // Derive vendor ID from principal (same logic as registration: lowercase principal)
   const principalStr = identity?.getPrincipal().toString() || '';
-  // Try to find vendor profile by looking up a stored vendorId
-  // Since we don't have a "get my vendor profile" endpoint, we use the store ID the user created
-  // We'll use a localStorage hint or fall back to showing a message
   const storedVendorId = typeof window !== 'undefined'
     ? localStorage.getItem(`vendorId_${principalStr}`)
     : null;
@@ -81,6 +79,34 @@ function VendorDashboardContent() {
         <h2 className="font-serif text-xl text-foreground mb-5">Store Profile</h2>
         <VendorProfileEditor profile={vendorProfile} />
       </div>
+
+      {/* Auctions */}
+      {storedVendorId && (
+        <div className="bg-card border border-border rounded p-6">
+          <h2 className="font-serif text-xl text-foreground mb-5">My Auctions</h2>
+          <p className="font-sans text-sm text-muted-foreground mb-5">
+            Create and manage auctions for your products with live countdown timers.
+          </p>
+          <VendorAuctionsPanel vendorId={storedVendorId} />
+        </div>
+      )}
+
+      {/* Payouts */}
+      {storedVendorId && (
+        <div className="bg-card border border-border rounded p-6">
+          <h2 className="font-serif text-xl text-foreground mb-5">My Payouts</h2>
+          <VendorPayoutsPanel vendorId={storedVendorId} />
+        </div>
+      )}
+
+      {/* Order History */}
+      <div className="bg-card border border-border rounded p-6">
+        <h2 className="font-serif text-xl text-foreground mb-5">Order History</h2>
+        <p className="font-sans text-sm text-muted-foreground mb-5">
+          All orders containing your products, with commission and net payout details.
+        </p>
+        <VendorOrderHistory />
+      </div>
     </div>
   );
 }
@@ -112,7 +138,7 @@ export default function VendorDashboard() {
   }
 
   return (
-    <main className="container mx-auto px-4 py-10 max-w-3xl">
+    <main className="container mx-auto px-4 py-10 max-w-4xl">
       <div className="mb-8">
         <p className="font-sans text-xs text-gold uppercase tracking-[0.2em] mb-2">Vendor</p>
         <h1 className="font-serif text-3xl text-foreground">My Store Dashboard</h1>

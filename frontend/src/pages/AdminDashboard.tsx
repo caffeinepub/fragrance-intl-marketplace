@@ -5,6 +5,9 @@ import AccessDenied from '../components/common/AccessDenied';
 import ApprovalDashboard from '../components/admin/ApprovalDashboard';
 import RoleAssignmentForm from '../components/admin/RoleAssignmentForm';
 import OrderManagementPanel from '../components/admin/OrderManagementPanel';
+import PayoutManagementPanel from '../components/admin/PayoutManagementPanel';
+import AuctionManagementPanel from '../components/admin/AuctionManagementPanel';
+import TradeOfferManagementPanel from '../components/admin/TradeOfferManagementPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Shield } from 'lucide-react';
@@ -33,7 +36,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <main className="container mx-auto px-4 py-10 max-w-5xl">
+    <main className="container mx-auto px-4 py-10 max-w-6xl">
       <div className="mb-8 flex items-center gap-3">
         <div className="w-10 h-10 rounded bg-gold/10 flex items-center justify-center">
           <Shield className="w-5 h-5 text-gold" />
@@ -64,6 +67,30 @@ export default function AdminDashboard() {
         <div className="bg-card border border-border rounded p-6">
           <h2 className="font-serif text-xl text-foreground mb-5">Order Management</h2>
           <OrderManagementPanel />
+        </div>
+
+        <Separator />
+
+        {/* Payout Management */}
+        <div className="bg-card border border-border rounded p-6">
+          <h2 className="font-serif text-xl text-foreground mb-5">Payout Management</h2>
+          <PayoutManagementPanel />
+        </div>
+
+        <Separator />
+
+        {/* Auction Management */}
+        <div className="bg-card border border-border rounded p-6">
+          <h2 className="font-serif text-xl text-foreground mb-5">Auction Management</h2>
+          <AuctionManagementPanel />
+        </div>
+
+        <Separator />
+
+        {/* Trade Offer Management */}
+        <div className="bg-card border border-border rounded p-6">
+          <h2 className="font-serif text-xl text-foreground mb-5">Trade Offer Management</h2>
+          <TradeOfferManagementPanel />
         </div>
       </div>
     </main>

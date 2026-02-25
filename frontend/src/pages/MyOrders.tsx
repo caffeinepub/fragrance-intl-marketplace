@@ -6,7 +6,7 @@ import OrderStatusBadge from '../components/orders/OrderStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { ClipboardList, ShoppingBag, ArrowRight } from 'lucide-react';
+import { ClipboardList, ShoppingBag, ArrowRight, Receipt } from 'lucide-react';
 import { OrderStatus } from '../backend';
 
 export default function MyOrders() {
@@ -95,17 +95,34 @@ export default function MyOrders() {
                       </div>
                     )}
                   </div>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <Link to="/order/$orderId" params={{ orderId: order.id }}>
-                      View Details
-                      <ArrowRight className="w-3 h-3 ml-1" />
-                    </Link>
-                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    {/* View Receipt button */}
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="text-xs border-gold/30 text-bronze hover:bg-gold/5"
+                    >
+                      <Link to="/order/$orderId/receipt" params={{ orderId: order.id }}>
+                        <Receipt className="w-3 h-3 mr-1" />
+                        Receipt
+                      </Link>
+                    </Button>
+
+                    {/* View Details button */}
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Link to="/order/$orderId" params={{ orderId: order.id }}>
+                        Details
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             );

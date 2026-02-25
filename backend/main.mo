@@ -16,16 +16,13 @@ import Storage "blob-storage/Storage";
 import UserApproval "user-approval/approval";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
-import Migration "migration";
 
-(with migration = Migration.run)
 actor {
   include MixinStorage();
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
   let approvalState = UserApproval.initState(accessControlState);
 
-  // Enumerations and Types
   type ProductType = { #physical; #digital; #service };
   type ProductStatus = { #active; #inactive };
   type OrderStatus = { #pending; #processing; #shipped; #delivered; #canceled };
@@ -94,6 +91,19 @@ actor {
     paymentHistory : [PaymentStatus];
   };
 
+  type TransactionEntry = {
+    orderId : Text;
+    buyer : Principal;
+    vendor : Principal;
+    items : [CartItem];
+    totalAmount : Int;
+    commissionFee : Int;
+    netPayout : Int;
+    timestamp : Int;
+  };
+
+  let transactions = Map.empty<Text, TransactionEntry>();
+
   type SearchFilter = {
     keyword : ?Text;
     category : ?Text;
@@ -101,11 +111,32 @@ actor {
     sortBy : ?{ #priceAsc; #priceDesc; #quantityDesc };
   };
 
+  type PayoutStatus = {
+    #pending;
+    #processing;
+    #completed;
+    #failed;
+  };
+
+  type Payout = {
+    payoutId : Text;
+    vendorId : Text;
+    orderId : Text;
+    grossAmount : Nat;
+    commissionAmount : Nat;
+    netAmount : Nat;
+    status : PayoutStatus;
+    createdAt : Int;
+    updatedAt : Int;
+  };
+
   let userProfiles = Map.empty<Principal, UserProfile>();
   let vendorProfiles = Map.empty<Text, VendorProfile>();
   let products = Map.empty<Text, Product>();
   let carts = Map.empty<Principal, List.List<CartItem>>();
   let orders = Map.empty<Text, Order>();
+  let payouts = Map.empty<Text, Payout>();
+  var commissionRate : Nat = 5;
 
   var stripeConfig : ?Stripe.StripeConfiguration = null;
 
@@ -444,7 +475,25 @@ actor {
     };
     orders.add(orderId, newOrder);
     carts.remove(caller);
+
+    createTransactionEntry(orderId, caller, cartItemsArray, total, timestamp);
+
     orderId;
+  };
+
+  func createTransactionEntry(orderId : Text, buyer : Principal, items : [CartItem], totalNat : Nat, timestamp : Int) {
+    let commissionFee = commissionRate.toInt() * totalNat.toInt() / 100;
+    let entry : TransactionEntry = {
+      orderId;
+      buyer;
+      vendor = buyer;
+      items;
+      totalAmount = totalNat.toInt();
+      commissionFee = commissionFee;
+      netPayout = totalNat.toInt() - commissionFee;
+      timestamp;
+    };
+    transactions.add(orderId, entry);
   };
 
   public query ({ caller }) func getOrder(orderId : Text) : async Order {
@@ -476,6 +525,40 @@ actor {
     orders.values().toArray();
   };
 
+  func initiatePayoutInternal(orderId : Text) : () {
+    switch (orders.get(orderId)) {
+      case (null) { Runtime.trap("Order not found") };
+      case (?order) {
+        if (order.items.size() == 0) {
+          Runtime.trap("Order has no items");
+        };
+        let firstItem = order.items[0];
+        let productId = firstItem.productId;
+        switch (products.get(productId)) {
+          case (null) { Runtime.trap("Product not found in order") };
+          case (?product) {
+            let vendorId = product.vendorId;
+            let timestamp = Time.now();
+            let commission = (order.total * commissionRate) / 100;
+            let netAmount = order.total - commission;
+            let payout : Payout = {
+              payoutId = "payout_" # timestamp.toText();
+              vendorId;
+              orderId;
+              grossAmount = order.total;
+              commissionAmount = commission;
+              netAmount;
+              status = #pending;
+              createdAt = timestamp;
+              updatedAt = timestamp;
+            };
+            payouts.add(payout.payoutId, payout);
+          };
+        };
+      };
+    };
+  };
+
   public shared ({ caller }) func updateOrderStatus(orderId : Text, newStatus : OrderStatus) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can update order status");
@@ -501,6 +584,10 @@ actor {
           paymentHistory = order.paymentHistory;
         };
         orders.add(orderId, updatedOrder);
+        switch (newStatus) {
+          case (#delivered) { initiatePayoutInternal(orderId) };
+          case (_) {};
+        };
       };
     };
   };
@@ -528,5 +615,158 @@ actor {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     UserApproval.listApprovals(approvalState);
+  };
+
+  public shared ({ caller }) func setCommissionRate(rate : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    if (rate > 100) {
+      Runtime.trap("Commission rate must be between 0 and 100");
+    };
+    commissionRate := rate;
+  };
+
+  public query ({ caller }) func getCommissionRate() : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view the commission rate");
+    };
+    commissionRate;
+  };
+
+  public shared ({ caller }) func initiatePayout(orderId : Text) : async Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    switch (orders.get(orderId)) {
+      case (null) { Runtime.trap("Order not found") };
+      case (?order) {
+        if (order.items.size() == 0) {
+          Runtime.trap("Order has no items");
+        };
+        let firstItem = order.items[0];
+        let productId = firstItem.productId;
+        switch (products.get(productId)) {
+          case (null) { Runtime.trap("Product not found in order") };
+          case (?product) {
+            let vendorId = product.vendorId;
+            let timestamp = Time.now();
+            let commission = (order.total * commissionRate) / 100;
+            let netAmount = order.total - commission;
+            let payout : Payout = {
+              payoutId = "payout_" # timestamp.toText();
+              vendorId;
+              orderId;
+              grossAmount = order.total;
+              commissionAmount = commission;
+              netAmount;
+              status = #pending;
+              createdAt = timestamp;
+              updatedAt = timestamp;
+            };
+            payouts.add(payout.payoutId, payout);
+            return payout.payoutId;
+          };
+        };
+      };
+    };
+  };
+
+  public shared ({ caller }) func updatePayoutStatus(payoutId : Text, status : PayoutStatus) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    switch (payouts.get(payoutId)) {
+      case (null) { Runtime.trap("Payout not found") };
+      case (?payout) {
+        let updatedPayout : Payout = {
+          payoutId = payout.payoutId;
+          vendorId = payout.vendorId;
+          orderId = payout.orderId;
+          grossAmount = payout.grossAmount;
+          commissionAmount = payout.commissionAmount;
+          netAmount = payout.netAmount;
+          status;
+          createdAt = payout.createdAt;
+          updatedAt = Time.now();
+        };
+        payouts.add(payoutId, updatedPayout);
+      };
+    };
+  };
+
+  public query ({ caller }) func getPayout(payoutId : Text) : async ?Payout {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can access this function");
+    };
+    payouts.get(payoutId);
+  };
+
+  public query ({ caller }) func getPayoutsForVendor(vendorId : Text) : async [Payout] {
+    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    if (not isAdmin) {
+      if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+        Runtime.trap("Unauthorized: Only authenticated users can view vendor payouts");
+      };
+      switch (vendorProfiles.get(vendorId)) {
+        case (null) { Runtime.trap("Vendor profile not found") };
+        case (?vendorProfile) {
+          if (vendorProfile.createdBy != caller) {
+            Runtime.trap("Unauthorized: You can only view payouts for your own vendor profile");
+          };
+        };
+      };
+    };
+    payouts.values().toArray().filter(func(payout : Payout) : Bool { payout.vendorId == vendorId });
+  };
+
+  public query ({ caller }) func getAllPayouts() : async [Payout] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    payouts.values().toArray();
+  };
+
+  public query ({ caller }) func getTransaction(orderId : Text) : async ?TransactionEntry {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view transactions");
+    };
+    switch (transactions.get(orderId)) {
+      case (null) { null };
+      case (?entry) {
+        if (entry.buyer != caller and entry.vendor != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: You can only view your own transactions");
+        };
+        ?entry;
+      };
+    };
+  };
+
+  public query ({ caller }) func getTransactionsByBuyer(buyer : Principal) : async [TransactionEntry] {
+    if (caller != buyer and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: You can only view your own transactions");
+    };
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user)) and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Only authenticated users can view transactions");
+    };
+    transactions.values().toArray().filter(
+      func(transaction : TransactionEntry) : Bool {
+        transaction.buyer == buyer;
+      }
+    );
+  };
+
+  public query ({ caller }) func getTransactionsByVendor(vendor : Principal) : async [TransactionEntry] {
+    if (caller != vendor and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: You can only view your own transactions");
+    };
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user)) and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Only authenticated users can view transactions");
+    };
+    transactions.values().toArray().filter(
+      func(transaction : TransactionEntry) : Bool {
+        transaction.vendor == vendor;
+      }
+    );
   };
 };

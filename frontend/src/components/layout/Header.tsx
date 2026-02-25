@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, X, User, Store, Package, ShoppingBag, ClipboardList, Shield } from 'lucide-react';
+import { Menu, X, User, Store, Package, ShoppingBag, ClipboardList, Shield, Gavel, ArrowLeftRight } from 'lucide-react';
 
 export default function Header() {
   const { identity } = useInternetIdentity();
@@ -44,6 +44,9 @@ export default function Header() {
         <nav className="hidden md:flex items-center gap-1">
           <Button variant="ghost" size="sm" asChild className="font-sans text-sm hover:bg-gold/10 hover:text-gold">
             <Link to="/products">Shop</Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild className="font-sans text-sm hover:bg-gold/10 hover:text-gold">
+            <Link to="/auctions">Auctions</Link>
           </Button>
           {isAuthenticated && (
             <>
@@ -79,7 +82,7 @@ export default function Header() {
                   <User className="w-5 h-5 text-bronze" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-52">
                 <div className="px-3 py-2 border-b border-border">
                   <p className="font-sans text-sm font-medium text-foreground truncate">
                     {userProfile?.name || 'User'}
@@ -92,6 +95,12 @@ export default function Header() {
                   <Link to="/my-orders" className="flex items-center gap-2 cursor-pointer">
                     <ClipboardList className="w-4 h-4" />
                     My Orders
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/trade-offers" className="flex items-center gap-2 cursor-pointer">
+                    <ArrowLeftRight className="w-4 h-4" />
+                    Trade Offers
                   </Link>
                 </DropdownMenuItem>
                 {isApproved ? (
@@ -161,6 +170,18 @@ export default function Header() {
               Shop
             </Link>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="w-full justify-start font-sans text-sm"
+            onClick={() => setMobileOpen(false)}
+          >
+            <Link to="/auctions">
+              <Gavel className="w-4 h-4 mr-2" />
+              Auctions
+            </Link>
+          </Button>
           {isAuthenticated && (
             <>
               <Button
@@ -173,6 +194,18 @@ export default function Header() {
                 <Link to="/my-orders">
                   <ClipboardList className="w-4 h-4 mr-2" />
                   My Orders
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="w-full justify-start font-sans text-sm"
+                onClick={() => setMobileOpen(false)}
+              >
+                <Link to="/trade-offers">
+                  <ArrowLeftRight className="w-4 h-4 mr-2" />
+                  Trade Offers
                 </Link>
               </Button>
               {isApproved ? (
