@@ -1,0 +1,115 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-25T17:33:15.927Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 6,
+    "implemented": 3,
+    "items": [
+      {
+        "id": "REQ-1",
+        "summary": "Extend the backend order data model and actor to support full order lifecycle transitions: pending → processing → shipped → delivered → cancelled. Expose update endpoints so that order status can be changed programmatically, and persist all status changes in stable storage.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Implement end-to-end transaction processing in the backend: when a Stripe payment confirmation is received, atomically mark the associated order as #processing, record the confirmed payment details, and ensure the order cannot be double-confirmed.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Add a React Query hook (useUpdateOrderStatus) and a backend call to allow admin users to manually move an order through its status stages from the Admin Dashboard.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/admin/OrderManagementPanel.tsx",
+          "frontend/src/pages/AdminDashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/admin/OrderManagementPanel.tsx",
+          "frontend/src/pages/AdminDashboard.tsx"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Enhance the MyOrders page and OrderConfirmation page to display real-time order tracking information: current status badge, a visual status timeline (pending → processing → shipped → delivered), estimated stage labels, and a refresh/polling mechanism so status updates appear without a full page reload.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/orders/OrderStatusBadge.tsx",
+          "frontend/src/components/orders/OrderStatusTimeline.tsx",
+          "frontend/src/pages/MyOrders.tsx",
+          "frontend/src/pages/OrderConfirmation.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/orders/OrderStatusBadge.tsx",
+          "frontend/src/components/orders/OrderStatusTimeline.tsx",
+          "frontend/src/pages/MyOrders.tsx",
+          "frontend/src/pages/OrderConfirmation.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ]
+      },
+      {
+        "id": "REQ-5",
+        "summary": "Update the PaymentSuccess page to call the payment confirmation endpoint after Stripe redirects back, update the linked order status to #processing, and display a confirmation summary with the updated order status before redirecting the user to the OrderConfirmation page.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/pages/PaymentSuccess.tsx",
+          "frontend/src/utils/urlParams.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/pages/PaymentSuccess.tsx",
+          "frontend/src/utils/urlParams.ts"
+        ]
+      },
+      {
+        "id": "REQ-6",
+        "summary": "Generate a migration module (migration.mo) that upgrades existing stored order records to include the new status variants and any new fields (e.g., paymentSessionId, statusHistory) added in REQ-1 and REQ-2, defaulting missing fields to safe initial values.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      }
+    ]
+  },
+  "changedFiles": [
+    "backend/main.mo",
+    "backend/migration.mo",
+    "build-request.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/admin/OrderManagementPanel.tsx",
+    "frontend/src/components/orders/OrderStatusBadge.tsx",
+    "frontend/src/components/orders/OrderStatusTimeline.tsx",
+    "frontend/src/components/products/SearchFilters.tsx",
+    "frontend/src/components/vendor/ProductListManager.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/AdminDashboard.tsx",
+    "frontend/src/pages/Home.tsx",
+    "frontend/src/pages/MyOrders.tsx",
+    "frontend/src/pages/OrderConfirmation.tsx",
+    "frontend/src/pages/PaymentSuccess.tsx",
+    "frontend/src/utils/urlParams.ts",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

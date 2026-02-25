@@ -1,0 +1,103 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "End-to-end transaction processing with order management",
+  "requirements": [
+    {
+      "id": "REQ-3",
+      "summary": "Add order status update capability for admin users via the Admin Dashboard",
+      "acceptanceCriteria": [
+        "useUpdateOrderStatus mutation hook is defined in useQueries.ts and calls the backend status-update endpoint.",
+        "Admin Dashboard page includes an order management section listing all orders with their current status.",
+        "Each order row exposes a status selector or action buttons to advance/cancel the order status.",
+        "Successful status update reflects immediately in the UI via query invalidation."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add useUpdateOrderStatus mutation hook that calls the backend updateOrderStatus capability and invalidates the 'allOrders' and 'myOrders' query keys on success. Accept orderId and newStatus (OrderStatus enum) as parameters."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add useGetAllOrders query hook that calls the backend getAllOrders capability and returns all orders across all users for admin dashboard display. Use query key 'allOrders'."
+        },
+        {
+          "path": "frontend/src/components/admin/OrderManagementPanel.tsx",
+          "operation": "create",
+          "description": "Create an order management panel component for admins. Display all orders using useGetAllOrders hook in a table showing order ID, customer principal (truncated), status badge, total, item count, and created date. For each order, render a dropdown or button group to change status between pending/processing/shipped/delivered/canceled using useUpdateOrderStatus mutation. Show loading states during status updates. Include filters to view orders by status."
+        },
+        {
+          "path": "frontend/src/pages/AdminDashboard.tsx",
+          "operation": "modify",
+          "description": "Import and render the OrderManagementPanel component below the existing ApprovalDashboard. Add a section heading 'Order Management' with appropriate spacing. Ensure the page remains admin-only gated."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Enhance MyOrders and OrderConfirmation pages with real-time order tracking and status timeline",
+      "acceptanceCriteria": [
+        "MyOrders page shows a status badge for each order using the full status vocabulary (#pending, #processing, #shipped, #delivered, #cancelled).",
+        "OrderConfirmation page renders a horizontal or vertical status timeline that highlights the current stage.",
+        "Orders in active states (#pending, #processing, #shipped) are polled for status updates at a reasonable interval (e.g., every 30 seconds) using React Query's refetchInterval.",
+        "Cancelled orders are visually distinguished (e.g., muted or strikethrough style)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/orders/OrderStatusBadge.tsx",
+          "operation": "create",
+          "description": "Create a reusable OrderStatusBadge component that accepts an OrderStatus enum value and renders a styled badge with appropriate color coding: pending (yellow/amber), processing (blue), shipped (purple), delivered (green), canceled (gray/muted). Use Tailwind CSS classes for styling."
+        },
+        {
+          "path": "frontend/src/components/orders/OrderStatusTimeline.tsx",
+          "operation": "create",
+          "description": "Create an OrderStatusTimeline component that displays a horizontal or vertical progress timeline showing pending → processing → shipped → delivered stages. Accept currentStatus as a prop and highlight completed stages with check icons, the current stage with emphasis, and future stages in muted style. If status is canceled, show all stages as muted with a cancellation indicator. Use icons from lucide-react or similar."
+        },
+        {
+          "path": "frontend/src/pages/MyOrders.tsx",
+          "operation": "modify",
+          "description": "Import and use OrderStatusBadge component for each order row. Replace any existing status text rendering with the badge component. Add visual treatment for canceled orders (muted text color, reduced opacity). Enable refetchInterval of 30000ms (30 seconds) in the useGetMyOrders query for orders with active statuses (pending, processing, shipped)."
+        },
+        {
+          "path": "frontend/src/pages/OrderConfirmation.tsx",
+          "operation": "modify",
+          "description": "Import and render the OrderStatusTimeline component prominently near the top of the order details section. Replace or supplement the existing status display with both the timeline and an OrderStatusBadge. Enable refetchInterval of 30000ms in the useGetOrder query if the order status is pending, processing, or shipped. Stop polling for delivered or canceled orders."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Update useGetMyOrders and useGetOrder hooks to conditionally apply refetchInterval. For useGetMyOrders, only enable polling if at least one order is in an active state (pending, processing, shipped). For useGetOrder, accept the order status and enable refetchInterval: 30000 only for active states."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Update PaymentSuccess page to confirm payment and display order status before redirecting",
+      "acceptanceCriteria": [
+        "On mount, PaymentSuccess page calls the confirmPayment backend endpoint with the Stripe session ID from the URL.",
+        "While confirming, a loading state is shown.",
+        "On success, the page displays a brief confirmation summary (order ID, status: Processing, item count, total) before navigating to /order/:id.",
+        "On error (e.g., already confirmed or session not found), a descriptive error message is shown with a link to MyOrders."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add useConfirmPayment mutation hook that accepts a sessionId string, calls the backend getStripeSessionStatus capability to validate the session, parses the StripeSessionStatus response, and extracts the order ID from the completed response. On success, invalidate 'myOrders' and 'order' query keys. Return the parsed order data or throw an error for failed status."
+        },
+        {
+          "path": "frontend/src/pages/PaymentSuccess.tsx",
+          "operation": "modify",
+          "description": "On component mount, extract the session_id URL parameter using the urlParams utility. Call useConfirmPayment mutation with the session ID. Show a loading spinner and 'Confirming your payment...' message while the mutation is pending. On success, display a confirmation card showing the order ID, status badge (Processing), item count, and total. After 2-3 seconds or on user click, navigate to /order/:orderId using TanStack Router. On error, display an error alert with the error message and a link to /my-orders. Handle the case where session_id is missing with a clear error message."
+        },
+        {
+          "path": "frontend/src/utils/urlParams.ts",
+          "operation": "modify",
+          "description": "Add a helper function getSessionIdFromUrl() that extracts the session_id parameter from the current URL query string (for both standard query params and hash-based routing). Return the session ID string or null if not found."
+        }
+      ]
+    }
+  ]
+}

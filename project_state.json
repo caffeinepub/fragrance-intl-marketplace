@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "E-commerce/transaction processing project focused on end-to-end transaction processing and order management including placement, tracking, and status updates.",
+  "architectural_notes": [],
+  "known_issues": [],
+  "isFixRequest": false,
+  "existing_features": [
+    {
+      "id": "feature-add-a-react-query-hook-useupdateorderstatus-and-a-backend-call-to-allow-admin-users-to-manually-move-an-order-through-its-status-stages-from-the-admin-dashboard",
+      "title": "Add a React Query hook (useUpdateOrderStatus) and a backend call to allow admin users to manually move an order through its status stages from the Admin Dashboard.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-enhance-the-myorders-page-and-orderconfirmation-page-to-display-real-time-order-tracking-information-current-status-badge-a-visual-status-timeline-pending-processing-shipped-delivered-estimated-stage-labels-and-a-refresh-polling-mechanism-so-status-updates-appear-without-a-full-page-reload",
+      "title": "Enhance the MyOrders page and OrderConfirmation page to display real-time order tracking information: current status badge, a visual status timeline (pending → processing → shipped → delivered), estimated stage labels, and a refresh/polling mechanism so status updates appear without a full page reload.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-paymentsuccess-page-to-call-the-payment-confirmation-endpoint-after-stripe-redirects-back-update-the-linked-order-status-to-processing-and-display-a-confirmation-summary-with-the-updated-order-status-before-redirecting-the-user-to-the-orderconfirmation-page",
+      "title": "Update the PaymentSuccess page to call the payment confirmation endpoint after Stripe redirects back, update the linked order status to #processing, and display a confirmation summary with the updated order status before redirecting the user to the OrderConfirmation page.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "End-to-end transaction processing",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Order management: placement, tracking, and status updates",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Extend the backend order data model and actor to support full order lifecycle transitions: pending → processing → shipped → delivered → cancelled. Expose update endpoints so that order status can be changed programmatically, and persist all status changes in stable storage.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Implement end-to-end transaction processing in the backend: when a Stripe payment confirmation is received, atomically mark the associated order as #processing, record the confirmed payment details, and ensure the order cannot be double-confirmed.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Generate a migration module (migration.mo) that upgrades existing stored order records to include the new status variants and any new fields (e.g., paymentSessionId, statusHistory) added in REQ-1 and REQ-2, defaulting missing fields to safe initial values.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "Fragrance.Intl Marketplace",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

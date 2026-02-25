@@ -1,0 +1,82 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-add-a-react-query-hook-useupdateorderstatus-and-a-backend-call-to-allow-admin-users-to-manually-move-an-order-through-its-status-stages-from-the-admin-dashboard",
+      "featureTitle": "Add a React Query hook (useUpdateOrderStatus) and a backend call to allow admin users to manually move an order through its status stages from the Admin Dashboard.",
+      "files": [
+        "frontend/src/components/admin/OrderManagementPanel.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/AdminDashboard.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "stripe@3.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-enhance-the-myorders-page-and-orderconfirmation-page-to-display-real-time-order-tracking-information-current-status-badge-a-visual-status-timeline-pending-processing-shipped-delivered-estimated-stage-labels-and-a-refresh-polling-mechanism-so-status-updates-appear-without-a-full-page-reload",
+      "featureTitle": "Enhance the MyOrders page and OrderConfirmation page to display real-time order tracking information: current status badge, a visual status timeline (pending → processing → shipped → delivered), estimated stage labels, and a refresh/polling mechanism so status updates appear without a full page reload.",
+      "files": [
+        "frontend/src/components/orders/OrderStatusBadge.tsx",
+        "frontend/src/components/orders/OrderStatusTimeline.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/MyOrders.tsx",
+        "frontend/src/pages/OrderConfirmation.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "stripe@3.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-the-paymentsuccess-page-to-call-the-payment-confirmation-endpoint-after-stripe-redirects-back-update-the-linked-order-status-to-processing-and-display-a-confirmation-summary-with-the-updated-order-status-before-redirecting-the-user-to-the-orderconfirmation-page",
+      "featureTitle": "Update the PaymentSuccess page to call the payment confirmation endpoint after Stripe redirects back, update the linked order status to #processing, and display a confirmation summary with the updated order status before redirecting the user to the OrderConfirmation page.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/PaymentSuccess.tsx",
+        "frontend/src/utils/urlParams.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "stripe@3.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

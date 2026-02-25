@@ -1,0 +1,141 @@
+{
+  "kind": "build_request",
+  "title": "End-to-end transaction processing with order management",
+  "projectName": "Fragrance.Intl Marketplace",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Extend the backend order data model and actor to support full order lifecycle transitions: pending → processing → shipped → delivered → cancelled. Expose update endpoints so that order status can be changed programmatically, and persist all status changes in stable storage.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "Order management: placement, tracking, status updates"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Order status field supports at minimum: #pending, #processing, #shipped, #delivered, #cancelled variants.",
+        "A backend endpoint exists to update an order's status given an order ID and new status value.",
+        "Status changes are persisted across upgrades.",
+        "Only authorized callers (admin or the owning user for cancellation) can transition order status."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Implement end-to-end transaction processing in the backend: when a Stripe payment confirmation is received, atomically mark the associated order as #processing, record the confirmed payment details, and ensure the order cannot be double-confirmed.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "Goal: End-to-end transaction processing"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Confirming a Stripe session ID transitions the linked order from #pending to #processing.",
+        "Re-confirming an already-confirmed session ID returns an error or a no-op result rather than updating the order again.",
+        "Payment session ID is stored on the order record after confirmation.",
+        "A query endpoint returns the full order details including payment status."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Add a React Query hook (useUpdateOrderStatus) and a backend call to allow admin users to manually move an order through its status stages from the Admin Dashboard.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "Order management: placement, tracking, status updates"
+        ]
+      },
+      "acceptanceCriteria": [
+        "useUpdateOrderStatus mutation hook is defined in useQueries.ts and calls the backend status-update endpoint.",
+        "Admin Dashboard page includes an order management section listing all orders with their current status.",
+        "Each order row exposes a status selector or action buttons to advance/cancel the order status.",
+        "Successful status update reflects immediately in the UI via query invalidation."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Enhance the MyOrders page and OrderConfirmation page to display real-time order tracking information: current status badge, a visual status timeline (pending → processing → shipped → delivered), estimated stage labels, and a refresh/polling mechanism so status updates appear without a full page reload.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "Order management: placement, tracking, status updates",
+          "Goal: End-to-end transaction processing"
+        ]
+      },
+      "acceptanceCriteria": [
+        "MyOrders page shows a status badge for each order using the full status vocabulary (#pending, #processing, #shipped, #delivered, #cancelled).",
+        "OrderConfirmation page renders a horizontal or vertical status timeline that highlights the current stage.",
+        "Orders in active states (#pending, #processing, #shipped) are polled for status updates at a reasonable interval (e.g., every 30 seconds) using React Query's refetchInterval.",
+        "Cancelled orders are visually distinguished (e.g., muted or strikethrough style)."
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Update the PaymentSuccess page to call the payment confirmation endpoint after Stripe redirects back, update the linked order status to #processing, and display a confirmation summary with the updated order status before redirecting the user to the OrderConfirmation page.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "Goal: End-to-end transaction processing"
+        ]
+      },
+      "acceptanceCriteria": [
+        "On mount, PaymentSuccess page calls the confirmPayment backend endpoint with the Stripe session ID from the URL.",
+        "While confirming, a loading state is shown.",
+        "On success, the page displays a brief confirmation summary (order ID, status: Processing, item count, total) before navigating to /order/:id.",
+        "On error (e.g., already confirmed or session not found), a descriptive error message is shown with a link to MyOrders."
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "text": "Generate a migration module (migration.mo) that upgrades existing stored order records to include the new status variants and any new fields (e.g., paymentSessionId, statusHistory) added in REQ-1 and REQ-2, defaulting missing fields to safe initial values.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "Goal: End-to-end transaction processing",
+          "Order management: placement, tracking, status updates"
+        ]
+      },
+      "acceptanceCriteria": [
+        "migration.mo transforms all existing order records to the new schema without data loss.",
+        "Orders that were previously paymentConfirmed=true are migrated to status #processing.",
+        "Orders without a prior payment confirmation default to status #pending.",
+        "All other order fields are passed through unchanged."
+      ]
+    }
+  ],
+  "constraints": [
+    "All Motoko logic must remain in the single main actor (backend/main.mo).",
+    "Do not modify files listed in frontend.immutablePaths.",
+    "Preserve existing Stripe checkout session creation flow; only extend it, do not replace it.",
+    "Role-based access control must be enforced: only admins can update any order status; users can only cancel their own orders."
+  ],
+  "nonGoals": [
+    "Introducing a new payment provider or replacing Stripe.",
+    "Real-time WebSocket-based order updates (polling is acceptable).",
+    "Shipping carrier integration or live tracking numbers.",
+    "Email or push notification of status changes.",
+    "Changes to the vendor product management or approval workflow."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}
