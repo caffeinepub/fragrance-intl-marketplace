@@ -1,11 +1,14 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the vendor approval flow so that admins can successfully approve or reject vendor requests, with changes persisted in the backend and reflected correctly in the frontend.
+**Goal:** Add product variants support to Fragrance.Intl, allowing vendors to define size, concentration, or bottle-type variants for their products, and customers to select variants when viewing or adding products to cart.
 
 **Planned changes:**
-- Fix backend approval logic so that approving or rejecting a vendor correctly updates and persists the vendor's status in the backend state.
-- Fix the ApprovalDashboard to correctly call approve/reject backend mutations, show success or error toast notifications, and refresh the approval list after each action.
-- Ensure vendor-gated pages (VendorDashboard, VendorProducts) correctly read the updated approval status and grant or block access accordingly without requiring a page reload.
+- Extend the backend `Product` data type to store an optional list of variants, each with a name, value, optional price adjustment, and optional stock quantity
+- Add backend functions `addProductVariant`, `updateProductVariant`, and `removeProductVariant`, restricted to the product owner or an admin
+- Add a `ProductVariant` TypeScript type and extend the `Product` type to include an optional `variants` array
+- Update the `ProductForm` in the vendor dashboard to allow adding, editing, and removing variant rows inline
+- Update `ProductCard` and product detail UI to show a variant selector (dropdown or button group) that reflects adjusted price and stock when a variant is selected; add-to-cart passes the selected variant
+- Add React Query mutation hooks (`useAddProductVariant`, `useUpdateProductVariant`, `useRemoveProductVariant`) with cache invalidation on success
 
-**User-visible outcome:** Admins can approve or reject pending vendors from the ApprovalDashboard without errors, see the list update immediately, and approved vendors gain access to vendor pages while pending/rejected vendors remain blocked.
+**User-visible outcome:** Vendors can define multiple variants (e.g., 50ml, 100ml) for a product with individual price adjustments and stock levels. Shoppers can select a variant on the product card or detail page and see the correct price and availability before adding to cart.

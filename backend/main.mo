@@ -1,22 +1,24 @@
 import Iter "mo:core/Iter";
 import Array "mo:core/Array";
-import Map "mo:core/Map";
-import Time "mo:core/Time";
 import List "mo:core/List";
-import Int "mo:core/Int";
-import Text "mo:core/Text";
 import Nat "mo:core/Nat";
 import Runtime "mo:core/Runtime";
+import Int "mo:core/Int";
+import Time "mo:core/Time";
+import Map "mo:core/Map";
+import Text "mo:core/Text";
+import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
-import AccessControl "authorization/access-control";
-import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
+import MixinStorage "blob-storage/Mixin";
+import AccessControl "authorization/access-control";
+import Migration "migration";
 import UserApproval "user-approval/approval";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
-import Order "mo:core/Order";
 
+(with migration = Migration.run)
 actor {
   include MixinStorage();
   let accessControlState = AccessControl.initState();
@@ -64,6 +66,14 @@ actor {
     principal : Text;
   };
 
+  // New ProductVariant type
+  type ProductVariant = {
+    name : Text;
+    value : Text;
+    priceAdjustment : Nat;
+    stockAdjustment : Nat;
+  };
+
   type Product = {
     id : Text;
     vendorId : Text;
@@ -75,10 +85,13 @@ actor {
     stock : Nat;
     image : ?Principal;
     status : ProductStatus;
+    variants : [ProductVariant];
   };
 
-  // Store-level product map: storeId -> (productId -> Product)
+  // Store-level product map (stable variable): storeId -> (productId -> Product)
   let storeProducts = Map.empty<Text, Map.Map<Text, Product>>();
+  // Stable products map by productId
+  let products = Map.empty<Text, Product>();
 
   module Product {
     public func compareByPrice(a : Product, b : Product) : Order.Order {
@@ -159,7 +172,6 @@ actor {
 
   let userProfiles = Map.empty<Principal, UserProfile>();
   let vendorProfiles = Map.empty<Text, VendorProfile>();
-  let products = Map.empty<Text, Product>();
   let carts = Map.empty<Principal, List.List<CartItem>>();
   let orders = Map.empty<Text, Order>();
   let payouts = Map.empty<Text, Payout>();
@@ -496,4 +508,106 @@ actor {
       case (null) { [] };
     };
   };
+
+  // Backend Variant Management Functions
+
+  public shared ({ caller }) func addVariant(storeId : Text, productId : Text, variant : ProductVariant) : async () {
+    let store = switch (stores.get(storeId)) {
+      case (?s) { s };
+      case (null) { Runtime.trap("Store not found") };
+    };
+
+    if (
+      not (AccessControl.isAdmin(accessControlState, caller)) and
+      (store.vendorId != caller)
+    ) {
+      Runtime.trap("Unauthorized: Only the store owner or an admin can add variants");
+    };
+
+    let storeProductsMap = switch (storeProducts.get(storeId)) {
+      case (?p) { p };
+      case (null) { Runtime.trap("Store has no products") };
+    };
+
+    let product = switch (storeProductsMap.get(productId)) {
+      case (?p) { p };
+      case (null) { Runtime.trap("Product not found") };
+    };
+
+    let updatedVariants = product.variants.concat([variant]);
+    let updatedProduct = { product with variants = updatedVariants };
+    storeProductsMap.add(productId, updatedProduct);
+  };
+
+  public shared ({ caller }) func updateVariant(storeId : Text, productId : Text, variantIndex : Nat, updatedVariant : ProductVariant) : async () {
+    let store = switch (stores.get(storeId)) {
+      case (?s) { s };
+      case (null) { Runtime.trap("Store not found") };
+    };
+
+    if (
+      not (AccessControl.isAdmin(accessControlState, caller)) and
+      (store.vendorId != caller)
+    ) {
+      Runtime.trap("Unauthorized: Only the store owner or an admin can update variants");
+    };
+
+    let storeProductsMap = switch (storeProducts.get(storeId)) {
+      case (?p) { p };
+      case (null) { Runtime.trap("Store has no products") };
+    };
+
+    let product = switch (storeProductsMap.get(productId)) {
+      case (?p) { p };
+      case (null) { Runtime.trap("Product not found") };
+    };
+
+    if (variantIndex >= product.variants.size()) {
+      Runtime.trap("Invalid variant index");
+    };
+
+    let updatedVariants = product.variants.toVarArray<ProductVariant>();
+    updatedVariants[variantIndex] := updatedVariant;
+    let updatedProduct = { product with variants = updatedVariants.toArray() };
+    storeProductsMap.add(productId, updatedProduct);
+  };
+
+  public shared ({ caller }) func deleteVariant(storeId : Text, productId : Text, variantIndex : Nat) : async () {
+    let store = switch (stores.get(storeId)) {
+      case (?s) { s };
+      case (null) { Runtime.trap("Store not found") };
+    };
+
+    if (
+      not (AccessControl.isAdmin(accessControlState, caller)) and
+      (store.vendorId != caller)
+    ) {
+      Runtime.trap("Unauthorized: Only the store owner or an admin can delete variants");
+    };
+
+    let storeProductsMap = switch (storeProducts.get(storeId)) {
+      case (?p) { p };
+      case (null) { Runtime.trap("Store has no products") };
+    };
+
+    let product = switch (storeProductsMap.get(productId)) {
+      case (?p) { p };
+      case (null) { Runtime.trap("Product not found") };
+    };
+
+    if (variantIndex >= product.variants.size()) {
+      Runtime.trap("Invalid variant index");
+    };
+
+    let newVariantsList = List.empty<ProductVariant>();
+    for ((i, variant) in product.variants.values().enumerate()) {
+      if (i != variantIndex) {
+        newVariantsList.add(variant);
+      };
+    };
+
+    let updatedProduct = { product with variants = newVariantsList.toArray() };
+    storeProductsMap.add(productId, updatedProduct);
+  };
 };
+

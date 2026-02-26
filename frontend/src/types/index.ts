@@ -45,6 +45,13 @@ export interface VendorProfile {
   principal: string;
 }
 
+export interface ProductVariant {
+  name: string;
+  value: string;
+  priceAdjustment: number;
+  stockAdjustment: number;
+}
+
 export interface Product {
   id: string;
   vendorId: string;
@@ -56,11 +63,14 @@ export interface Product {
   stock: number;
   image?: string | null;
   status: ProductStatus;
+  variants: ProductVariant[];
 }
 
 export interface CartItem {
   productId: string;
   quantity: number;
+  variantIndex?: number;
+  variantLabel?: string;
 }
 
 export interface Order {

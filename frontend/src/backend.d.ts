@@ -12,6 +12,7 @@ export interface Product {
     status: ProductStatus;
     title: string;
     description: string;
+    variants: Array<ProductVariant>;
     productType: ProductType;
     stock: bigint;
     vendorId: string;
@@ -25,6 +26,12 @@ export interface TransformationOutput {
     headers: Array<http_header>;
 }
 export type Time = bigint;
+export interface ProductVariant {
+    value: string;
+    name: string;
+    stockAdjustment: bigint;
+    priceAdjustment: bigint;
+}
 export interface http_header {
     value: string;
     name: string;
@@ -100,10 +107,12 @@ export enum UserRole {
 }
 export interface backendInterface {
     addProductToStore(storeId: string, product: Product): Promise<void>;
+    addVariant(storeId: string, productId: string, variant: ProductVariant): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createStore(name: string, description: string, contactInfo: string): Promise<StoreResponse>;
     deleteStoreProduct(storeId: string, productId: string): Promise<void>;
+    deleteVariant(storeId: string, productId: string, variantIndex: bigint): Promise<void>;
     getAllStoreIds(): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -123,4 +132,5 @@ export interface backendInterface {
     transform(input: TransformationInput): Promise<TransformationOutput>;
     updateStore(storeId: string, name: string, description: string, updatedContactInfo: string): Promise<StoreResponse>;
     updateStoreProduct(storeId: string, product: Product): Promise<void>;
+    updateVariant(storeId: string, productId: string, variantIndex: bigint, updatedVariant: ProductVariant): Promise<void>;
 }

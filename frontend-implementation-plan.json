@@ -1,38 +1,75 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix vendor approval flow",
+  "title": "Add Product Variants Support - Frontend",
   "requirements": [
     {
-      "id": "REQ-2",
-      "summary": "Fix the frontend vendor approval flow so that the ApprovalDashboard correctly calls the approve/reject backend mutations, handles success and error states with toast notifications, and refreshes the approval list after an action.",
+      "id": "REQ-3",
+      "summary": "Update ProductForm to manage product variants with inline add/edit/remove functionality",
       "acceptanceCriteria": [
-        "Clicking 'Approve' on a pending vendor in ApprovalDashboard triggers the correct backend mutation and shows a success toast on completion.",
-        "Clicking 'Reject' on a pending vendor in ApprovalDashboard triggers the correct backend mutation and shows a success toast on completion.",
-        "If the approve or reject mutation fails, an error toast is shown to the admin.",
-        "The approval request list is refreshed/invalidated after a successful approve or reject action so the updated status is reflected immediately.",
-        "VendorDashboard and VendorProducts pages correctly read the updated approval status from the backend after approval and grant access without requiring a page reload."
+        "Vendors can add a new variant row with name, value, price adjustment, and stock fields.",
+        "Vendors can remove any variant row.",
+        "On product save, variants are persisted via the backend mutation.",
+        "Existing products with no variants render a clean empty variants section."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/vendor/ProductForm.tsx",
+          "operation": "modify",
+          "description": "Add variant management UI to the ProductForm component. Include a variants section with controls to add new variant rows (each with name, value, priceAdjustment, and stock fields), edit existing variants inline, and remove variants. Initialize variants as an empty array for new products. Wire variant state into the form submission payload so variants are passed to the backend mutation. Ensure the UI gracefully handles products with zero variants."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Display product variants as selectable options in ProductCard and detail views with dynamic pricing and stock",
+      "acceptanceCriteria": [
+        "Products with variants show a variant selector on the product card or detail view.",
+        "Selecting a variant updates the displayed price with any price adjustment applied.",
+        "Add-to-cart includes the selected variant information.",
+        "Products with no variants render normally with no selector shown."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/products/ProductCard.tsx",
+          "operation": "modify",
+          "description": "Add variant selector UI when product.variants is non-empty. Render a dropdown or button group to select a variant by index. When a variant is selected, calculate and display the adjusted price (product.price + variant.priceAdjustment). Update the add-to-cart handler to include the selected variant index and adjusted price in the cart item. If no variants exist, render the existing price and add-to-cart flow unchanged."
+        },
+        {
+          "path": "frontend/src/pages/ProductListing.tsx",
+          "operation": "modify",
+          "description": "Verify that ProductCard is used in the product grid and that variant selectors will render correctly in the listing context. No structural changes needed if ProductCard already handles variants per REQ-4 file operation above."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Extend TypeScript types to include ProductVariant and update Product type with optional variants array",
+      "acceptanceCriteria": [
+        "ProductVariant type is defined with correct fields.",
+        "Product type includes variants: ProductVariant[] field.",
+        "All existing type usages remain compatible."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/types/index.ts",
+          "operation": "modify",
+          "description": "Define a new ProductVariant type with fields: name (string), value (string), priceAdjustment (number), stockAdjustment (number). Update the Product type to include a variants field of type ProductVariant[] (non-optional, defaults to empty array). Ensure all existing Product type usages remain compatible by treating empty variants arrays as no-op."
+        }
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "summary": "Add React Query mutation hooks for variant CRUD operations with cache invalidation",
+      "acceptanceCriteria": [
+        "useAddProductVariant, useUpdateProductVariant, useRemoveProductVariant mutation hooks are available.",
+        "On success, the relevant product query cache is invalidated so the UI reflects changes immediately."
       ],
       "file_operations": [
         {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Add or verify the useSetApproval mutation hook that calls actor.setApproval(user, status) and properly invalidates the 'approvals' query key on success. Ensure the mutation returns a Promise and includes proper error handling for failed approvals. The hook should accept user Principal and ApprovalStatus as parameters."
-        },
-        {
-          "path": "frontend/src/components/admin/ApprovalDashboard.tsx",
-          "operation": "modify",
-          "description": "Update the Approve and Reject button click handlers to use the useSetApproval mutation from useQueries. On mutation success, show a success toast with a descriptive message (e.g., 'Vendor approved successfully' or 'Vendor rejected successfully'). On mutation error, show an error toast with the error message. Ensure the approval list automatically refreshes after the mutation succeeds by relying on query invalidation. Disable action buttons while the mutation is in progress to prevent duplicate submissions."
-        },
-        {
-          "path": "frontend/src/pages/VendorDashboard.tsx",
-          "operation": "modify",
-          "description": "Verify that the isCallerApproved check uses fresh data from the backend by ensuring the useIsCallerApproved query has appropriate staleTime/cacheTime settings (prefer fresh data). If the approval status changes from pending to approved, the user should gain access to the dashboard without a manual page reload. Consider adding a refetch mechanism or reducing staleTime to ensure approval status is checked on page navigation."
-        },
-        {
-          "path": "frontend/src/pages/VendorProducts.tsx",
-          "operation": "modify",
-          "description": "Verify that the isCallerApproved check uses fresh data from the backend by ensuring the useIsCallerApproved query has appropriate staleTime/cacheTime settings (prefer fresh data). If the approval status changes from pending to approved, the user should gain access to the products page without a manual page reload. Consider adding a refetch mechanism or reducing staleTime to ensure approval status is checked on page navigation."
+          "description": "Add three mutation hooks: useAddProductVariant, useUpdateProductVariant, and useRemoveProductVariant. Each hook calls the corresponding backend method (addVariant, updateVariant, deleteVariant) with storeId, productId, and variant parameters. On success, invalidate the product list query cache for the given storeId and the individual product query (if applicable) to ensure the UI reflects the updated variants immediately. Use the useActor hook to access the backend actor."
         }
       ]
     }

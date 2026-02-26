@@ -6,6 +6,7 @@ import {
   ApprovalStatus,
   UserRole,
   type Product as BackendProduct,
+  type ProductVariant as BackendProductVariant,
 } from '../backend';
 import type { UserApprovalInfo } from '../backend';
 import type { Principal } from '@icp-sdk/core/principal';
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 import type {
   VendorProfile,
   Product,
+  ProductVariant,
   CartItem,
   Order,
   Payout,
@@ -285,6 +287,26 @@ export function useDeleteProduct() {
 
 // ── Store Products ────────────────────────────────────────────────────────────
 
+/** Convert a backend ProductVariant (bigint fields) to a local ProductVariant (number fields) */
+function backendVariantToLocal(v: BackendProductVariant): ProductVariant {
+  return {
+    name: v.name,
+    value: v.value,
+    priceAdjustment: Number(v.priceAdjustment),
+    stockAdjustment: Number(v.stockAdjustment),
+  };
+}
+
+/** Convert a local ProductVariant (number fields) to a backend ProductVariant (bigint fields) */
+function localVariantToBackend(v: ProductVariant): BackendProductVariant {
+  return {
+    name: v.name,
+    value: v.value,
+    priceAdjustment: BigInt(Math.round(v.priceAdjustment)),
+    stockAdjustment: BigInt(Math.round(v.stockAdjustment)),
+  };
+}
+
 /** Convert a backend Product (bigint fields) to a local Product (number fields) */
 function backendProductToLocal(p: BackendProduct): Product {
   return {
@@ -298,6 +320,7 @@ function backendProductToLocal(p: BackendProduct): Product {
     stock: Number(p.stock),
     image: p.image ? p.image.toString() : null,
     status: p.status as 'active' | 'inactive',
+    variants: (p.variants ?? []).map(backendVariantToLocal),
   };
 }
 
@@ -314,6 +337,7 @@ function localProductToBackend(p: Product): BackendProduct {
     stock: BigInt(Math.round(p.stock)),
     image: undefined,
     status: p.status as BackendProduct['status'],
+    variants: (p.variants ?? []).map(localVariantToBackend),
   };
 }
 
@@ -407,6 +431,120 @@ export function useDeleteStoreProduct() {
     onError: (err: Error) => {
       if (err.message === 'UNAUTHORIZED') {
         toast.error('You do not have permission to manage products for this store.');
+      }
+    },
+  });
+}
+
+// ── Product Variant Mutations ─────────────────────────────────────────────────
+
+export function useAddProductVariant() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      productId,
+      variant,
+    }: {
+      storeId: string;
+      productId: string;
+      variant: ProductVariant;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      try {
+        return await actor.addVariant(storeId, productId, localVariantToBackend(variant));
+      } catch (err: unknown) {
+        if (isAuthorizationError(err)) {
+          throw new Error('UNAUTHORIZED');
+        }
+        throw err;
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+    },
+    onError: (err: Error) => {
+      if (err.message === 'UNAUTHORIZED') {
+        toast.error('You do not have permission to manage variants for this product.');
+      }
+    },
+  });
+}
+
+export function useUpdateProductVariant() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      productId,
+      variantIndex,
+      variant,
+    }: {
+      storeId: string;
+      productId: string;
+      variantIndex: number;
+      variant: ProductVariant;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      try {
+        return await actor.updateVariant(
+          storeId,
+          productId,
+          BigInt(variantIndex),
+          localVariantToBackend(variant),
+        );
+      } catch (err: unknown) {
+        if (isAuthorizationError(err)) {
+          throw new Error('UNAUTHORIZED');
+        }
+        throw err;
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+    },
+    onError: (err: Error) => {
+      if (err.message === 'UNAUTHORIZED') {
+        toast.error('You do not have permission to manage variants for this product.');
+      }
+    },
+  });
+}
+
+export function useRemoveProductVariant() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      productId,
+      variantIndex,
+    }: {
+      storeId: string;
+      productId: string;
+      variantIndex: number;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      try {
+        return await actor.deleteVariant(storeId, productId, BigInt(variantIndex));
+      } catch (err: unknown) {
+        if (isAuthorizationError(err)) {
+          throw new Error('UNAUTHORIZED');
+        }
+        throw err;
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+    },
+    onError: (err: Error) => {
+      if (err.message === 'UNAUTHORIZED') {
+        toast.error('You do not have permission to manage variants for this product.');
       }
     },
   });
@@ -636,9 +774,6 @@ export function useGetVendorAuctions(_vendorId: string | null) {
   });
 }
 
-// Alias for components that use the old name
-export const useListAuctionsByVendor = useGetVendorAuctions;
-
 export function useCreateAuction() {
   return useMutation({
     mutationFn: async (_params: {
@@ -647,6 +782,14 @@ export function useCreateAuction() {
       endTime: bigint;
     }) => {
       throw new Error('Auction creation not available in current backend version');
+    },
+  });
+}
+
+export function usePlaceBid() {
+  return useMutation({
+    mutationFn: async (_params: { auctionId: string; amount: bigint }) => {
+      throw new Error('Bid placement not available in current backend version');
     },
   });
 }
@@ -663,22 +806,6 @@ export function useFinalizeAuction() {
   return useMutation({
     mutationFn: async (_auctionId: string) => {
       throw new Error('Auction finalization not available in current backend version');
-    },
-  });
-}
-
-export function usePlaceBid() {
-  return useMutation({
-    mutationFn: async (_params: { auctionId: string; amount: bigint }) => {
-      throw new Error('Bid placement not available in current backend version');
-    },
-  });
-}
-
-export function useEndAuction() {
-  return useMutation({
-    mutationFn: async (_auctionId: string) => {
-      throw new Error('Auction ending not available in current backend version');
     },
   });
 }
@@ -731,6 +858,14 @@ export function useRejectTradeOffer() {
   });
 }
 
+export function useCancelTradeOffer() {
+  return useMutation({
+    mutationFn: async (_offerId: string) => {
+      throw new Error('Trade offer cancellation not available in current backend version');
+    },
+  });
+}
+
 export function useCounterTradeOffer() {
   return useMutation({
     mutationFn: async (_params: {
@@ -745,28 +880,49 @@ export function useCounterTradeOffer() {
   });
 }
 
-export function useCancelTradeOffer() {
+export function useRespondToTradeOffer() {
   return useMutation({
-    mutationFn: async (_offerId: string) => {
-      throw new Error('Trade offer cancellation not available in current backend version');
+    mutationFn: async (_params: {
+      offerId: string;
+      response: 'accept' | 'reject' | 'cancel' | 'counter';
+    }) => {
+      throw new Error('Trade offer response not available in current backend version');
     },
   });
 }
 
 // ── Stores ────────────────────────────────────────────────────────────────────
 
-export function useMyStores() {
+export function useGetStoresByVendor(vendorId: Principal | null) {
   const { actor, isFetching } = useActor();
-  const { identity } = useInternetIdentity();
 
   return useQuery<StoreResponse[]>({
-    queryKey: ['myStores'],
+    queryKey: ['vendorStores', vendorId?.toString()],
     queryFn: async () => {
-      if (!actor || !identity) return [];
-      const principal = identity.getPrincipal();
+      if (!actor || !vendorId) return [];
+      return actor.getStoresByVendor(vendorId);
+    },
+    enabled: !!actor && !isFetching && !!vendorId,
+  });
+}
+
+/**
+ * Convenience hook that fetches stores for the currently authenticated user.
+ * Used by StoreListManager, StoreSelector, and VendorDashboard.
+ */
+export function useMyStores() {
+  const { identity } = useInternetIdentity();
+  const { actor, isFetching } = useActor();
+
+  const principal = identity?.getPrincipal() ?? null;
+
+  return useQuery<StoreResponse[]>({
+    queryKey: ['vendorStores', principal?.toString()],
+    queryFn: async () => {
+      if (!actor || !principal) return [];
       return actor.getStoresByVendor(principal);
     },
-    enabled: !!actor && !isFetching && !!identity,
+    enabled: !!actor && !isFetching && !!principal,
   });
 }
 
@@ -788,7 +944,7 @@ export function useCreateStore() {
       return actor.createStore(name, description, contactInfo);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myStores'] });
+      queryClient.invalidateQueries({ queryKey: ['vendorStores'] });
     },
   });
 }
@@ -813,7 +969,7 @@ export function useUpdateStore() {
       return actor.updateStore(storeId, name, description, contactInfo);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myStores'] });
+      queryClient.invalidateQueries({ queryKey: ['vendorStores'] });
     },
   });
 }
@@ -828,7 +984,7 @@ export function useToggleStoreActive() {
       return actor.toggleStoreActive(storeId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myStores'] });
+      queryClient.invalidateQueries({ queryKey: ['vendorStores'] });
     },
   });
 }

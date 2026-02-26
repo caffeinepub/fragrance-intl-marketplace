@@ -1,18 +1,37 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "New project",
-  "architectural_notes": [],
-  "known_issues": [
-    "Vendor approval is not working as expected"
+  "summary": "Marketplace app with vendor management, admin/owner access controls, transfer of ownership feature, and product variants/bundles/wholesaling features in progress.",
+  "architectural_notes": [
+    "App runs on Internet Computer (ICP) using Internet Identity principals for user identification and access control."
   ],
-  "isFixRequest": true,
+  "known_issues": [
+    "Vendor approval fix may still need attention after version 19 deploy.",
+    "Build attempts for transfer of ownership and product variants/bundles/wholesaling failed — retrying in smaller steps."
+  ],
+  "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-fix-the-frontend-vendor-approval-flow-so-that-the-approvaldashboard-correctly-calls-the-approve-reject-backend-mutations-handles-success-and-error-states-with-toast-notifications-and-refreshes-the-approval-list-after-an-action",
-      "title": "Fix the frontend vendor approval flow so that the ApprovalDashboard correctly calls the approve/reject backend mutations, handles success and error states with toast notifications, and refreshes the approval list after an action.",
+      "id": "feature-update-the-productcard-and-product-detail-ui-to-display-available-variants-as-selectable-options-e-g-a-dropdown-or-button-group-when-a-variant-is-selected-show-the-adjusted-price-and-variant-specific-stock-availability",
+      "title": "Update the ProductCard and product detail UI to display available variants as selectable options (e.g., a dropdown or button group). When a variant is selected, show the adjusted price and variant-specific stock availability.",
       "reqIds": [
-        "REQ-2"
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-typescript-types-in-frontend-src-types-index-ts-to-include-a-productvariant-type-name-value-priceadjustment-stock-and-extend-the-product-type-to-include-an-optional-variants-array",
+      "title": "Update the TypeScript types in frontend/src/types/index.ts to include a ProductVariant type (name, value, priceAdjustment, stock) and extend the Product type to include an optional variants array.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-react-query-hooks-in-usequeries-ts-for-addproductvariant-updateproductvariant-and-removeproductvariant-mutations-and-ensure-product-queries-re-fetch-after-any-variant-mutation",
+      "title": "Add React Query hooks in useQueries.ts for addProductVariant, updateProductVariant, and removeProductVariant mutations, and ensure product queries re-fetch after any variant mutation.",
+      "reqIds": [
+        "REQ-6"
       ],
       "version": 1
     }
@@ -20,14 +39,55 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Fix the vendor approval backend logic so that when an admin approves a vendor via the ApprovalDashboard, the vendor's approval status is correctly updated in the backend state and persisted across calls.",
+      "summary": "Transfer of ownership feature (stores, products, orders) between vendors/admins",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Product variants support",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Product bundles support",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Wholesaling functionality",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Extend the backend Product data type to support variants (e.g., size, concentration, bottle type) as a list of variant options, each with a name, value, optional price adjustment, and optional stock quantity. Store variants as part of the product record.",
       "reqIds": [
         "REQ-1"
       ],
       "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Add backend functions to create, update, and delete variants on a product. Only the product owner (vendor) or an admin may modify variants.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Update the ProductForm component in the vendor dashboard to allow vendors to add, edit, and remove product variants inline. Each variant row should have fields for name, value, price adjustment (optional), and stock (optional).",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "status": "pending"
     }
   ],
-  "projectName": "Fix vendor approval flow",
+  "gameProjectType": "none",
+  "projectName": "Fragrance.Intl",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

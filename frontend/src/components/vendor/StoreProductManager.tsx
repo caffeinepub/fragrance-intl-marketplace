@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Product } from '../../types';
+import type { Product, ProductVariant } from '../../types';
 import { ProductType } from '../../types';
 import {
   useListStoreProducts,
@@ -38,6 +38,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -45,7 +46,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Loader2, Package, ShieldAlert } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Package, X, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface StoreProductManagerProps {
@@ -62,6 +63,13 @@ interface ProductFormState {
   stock: string;
 }
 
+interface VariantFormRow {
+  name: string;
+  value: string;
+  priceAdjustment: string;
+  stockAdjustment: string;
+}
+
 const emptyForm = (): ProductFormState => ({
   title: '',
   description: '',
@@ -69,6 +77,13 @@ const emptyForm = (): ProductFormState => ({
   category: '',
   productType: ProductType.physical,
   stock: '',
+});
+
+const emptyVariantRow = (): VariantFormRow => ({
+  name: '',
+  value: '',
+  priceAdjustment: '0',
+  stockAdjustment: '0',
 });
 
 function productTypeLabel(type: ProductType): string {
@@ -130,8 +145,37 @@ function InlineProductForm({
     return emptyForm();
   });
 
+  // Initialize variant rows from existing product variants
+  const [variantRows, setVariantRows] = useState<VariantFormRow[]>(() => {
+    if (product && product.variants && product.variants.length > 0) {
+      return product.variants.map((v) => ({
+        name: v.name,
+        value: v.value,
+        priceAdjustment: String(v.priceAdjustment),
+        stockAdjustment: String(v.stockAdjustment),
+      }));
+    }
+    return [];
+  });
+
   const handleChange = (field: keyof ProductFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleVariantChange = (index: number, field: keyof VariantFormRow, value: string) => {
+    setVariantRows((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleAddVariantRow = () => {
+    setVariantRows((prev) => [...prev, emptyVariantRow()]);
+  };
+
+  const handleRemoveVariantRow = (index: number) => {
+    setVariantRows((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,6 +193,23 @@ function InlineProductForm({
       return;
     }
 
+    // Validate variant rows
+    for (let i = 0; i < variantRows.length; i++) {
+      const row = variantRows[i];
+      if (!row.name.trim() || !row.value.trim()) {
+        toast.error(`Variant ${i + 1}: name and value are required`);
+        return;
+      }
+    }
+
+    // Build variants array
+    const variants: ProductVariant[] = variantRows.map((row) => ({
+      name: row.name.trim(),
+      value: row.value.trim(),
+      priceAdjustment: Math.round(parseFloat(row.priceAdjustment || '0') * 100),
+      stockAdjustment: parseInt(row.stockAdjustment || '0', 10) || 0,
+    }));
+
     const productData: Product = {
       id: product?.id ?? `product_${Date.now()}`,
       vendorId,
@@ -160,6 +221,7 @@ function InlineProductForm({
       stock: isNaN(stock) ? 0 : stock,
       image: product?.image ?? null,
       status: product?.status ?? 'active',
+      variants,
     };
 
     try {
@@ -172,8 +234,6 @@ function InlineProductForm({
       }
       onSuccess();
     } catch (err: unknown) {
-      // Authorization errors are already handled via onError in the mutation hook.
-      // Only show a generic error toast for non-authorization errors.
       const msg = err instanceof Error ? err.message : '';
       if (msg !== 'UNAUTHORIZED') {
         toast.error(getErrorMessage(err));
@@ -185,6 +245,7 @@ function InlineProductForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Basic fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="font-sans text-sm">
@@ -267,6 +328,111 @@ function InlineProductForm({
         </div>
       </div>
 
+      {/* Variants Section */}
+      <Separator />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-gold" />
+            <Label className="font-sans text-sm font-medium">
+              Variants
+              {variantRows.length > 0 && (
+                <span className="ml-1.5 text-xs text-muted-foreground font-normal">
+                  ({variantRows.length})
+                </span>
+              )}
+            </Label>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleAddVariantRow}
+            disabled={isPending}
+            className="font-sans text-xs h-7 px-2 border-border"
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            Add Variant
+          </Button>
+        </div>
+
+        {variantRows.length === 0 ? (
+          <p className="font-sans text-xs text-muted-foreground italic">
+            No variants — product will be sold as a single option.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {/* Header row */}
+            <div className="grid grid-cols-[1fr_1fr_100px_80px_32px] gap-2 px-1">
+              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">
+                Name
+              </span>
+              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">
+                Value
+              </span>
+              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">
+                Price Adj ($)
+              </span>
+              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">
+                Stock Adj
+              </span>
+              <span />
+            </div>
+
+            {variantRows.map((row, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-[1fr_1fr_100px_80px_32px] gap-2 items-center"
+              >
+                <Input
+                  value={row.name}
+                  onChange={(e) => handleVariantChange(index, 'name', e.target.value)}
+                  placeholder="e.g. Size"
+                  className="h-8 text-sm"
+                  disabled={isPending}
+                />
+                <Input
+                  value={row.value}
+                  onChange={(e) => handleVariantChange(index, 'value', e.target.value)}
+                  placeholder="e.g. 50ml"
+                  className="h-8 text-sm"
+                  disabled={isPending}
+                />
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={row.priceAdjustment}
+                  onChange={(e) => handleVariantChange(index, 'priceAdjustment', e.target.value)}
+                  placeholder="0.00"
+                  className="h-8 text-sm"
+                  disabled={isPending}
+                />
+                <Input
+                  type="number"
+                  step="1"
+                  value={row.stockAdjustment}
+                  onChange={(e) => handleVariantChange(index, 'stockAdjustment', e.target.value)}
+                  placeholder="0"
+                  className="h-8 text-sm"
+                  disabled={isPending}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => handleRemoveVariantRow(index)}
+                  disabled={isPending}
+                  title="Remove variant"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-2 justify-end pt-2">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
           Cancel
@@ -319,8 +485,6 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
       toast.success('Product deleted');
       setDeleteTarget(null);
     } catch (err: unknown) {
-      // Authorization errors are already handled via onError in the mutation hook.
-      // Only show a generic error toast for non-authorization errors.
       const msg = err instanceof Error ? err.message : '';
       if (msg !== 'UNAUTHORIZED') {
         toast.error(getErrorMessage(err));
@@ -385,6 +549,9 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
                 <TableHead className="font-sans text-xs uppercase tracking-wide text-right">
                   Stock
                 </TableHead>
+                <TableHead className="font-sans text-xs uppercase tracking-wide text-center">
+                  Variants
+                </TableHead>
                 <TableHead className="font-sans text-xs uppercase tracking-wide text-right">
                   Actions
                 </TableHead>
@@ -409,6 +576,20 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
                   </TableCell>
                   <TableCell className="font-sans text-sm text-right tabular-nums">
                     {product.stock}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {product.variants && product.variants.length > 0 ? (
+                      <Badge
+                        variant="secondary"
+                        className="font-sans text-xs"
+                        title={product.variants.map((v) => `${v.name}: ${v.value}`).join(', ')}
+                      >
+                        <Layers className="w-3 h-3 mr-1" />
+                        {product.variants.length}
+                      </Badge>
+                    ) : (
+                      <span className="font-sans text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -446,14 +627,14 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
 
       {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">
               {editingProduct ? 'Edit Product' : 'Add New Product'}
             </DialogTitle>
             <DialogDescription className="font-sans text-sm text-muted-foreground">
               {editingProduct
-                ? 'Update the details for this product.'
+                ? 'Update the details and variants for this product.'
                 : 'Fill in the details to add a new product to this store.'}
             </DialogDescription>
           </DialogHeader>

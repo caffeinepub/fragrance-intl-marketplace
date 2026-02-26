@@ -18,6 +18,7 @@ export interface Product {
   'status' : ProductStatus,
   'title' : string,
   'description' : string,
+  'variants' : Array<ProductVariant>,
   'productType' : ProductType,
   'stock' : bigint,
   'vendorId' : string,
@@ -30,6 +31,12 @@ export type ProductStatus = { 'active' : null } |
 export type ProductType = { 'service' : null } |
   { 'physical' : null } |
   { 'digital' : null };
+export interface ProductVariant {
+  'value' : string,
+  'name' : string,
+  'stockAdjustment' : bigint,
+  'priceAdjustment' : bigint,
+}
 export interface ShoppingItem {
   'productName' : string,
   'currency' : string,
@@ -111,6 +118,7 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addProductToStore' : ActorMethod<[string, Product], undefined>,
+  'addVariant' : ActorMethod<[string, string, ProductVariant], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createCheckoutSession' : ActorMethod<
     [Array<ShoppingItem>, string, string],
@@ -118,6 +126,7 @@ export interface _SERVICE {
   >,
   'createStore' : ActorMethod<[string, string, string], StoreResponse>,
   'deleteStoreProduct' : ActorMethod<[string, string], undefined>,
+  'deleteVariant' : ActorMethod<[string, string, bigint], undefined>,
   'getAllStoreIds' : ActorMethod<[], Array<string>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
@@ -137,6 +146,10 @@ export interface _SERVICE {
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
   'updateStore' : ActorMethod<[string, string, string, string], StoreResponse>,
   'updateStoreProduct' : ActorMethod<[string, Product], undefined>,
+  'updateVariant' : ActorMethod<
+    [string, string, bigint, ProductVariant],
+    undefined
+  >,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

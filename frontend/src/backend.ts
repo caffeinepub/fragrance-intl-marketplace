@@ -94,6 +94,7 @@ export interface Product {
     status: ProductStatus;
     title: string;
     description: string;
+    variants: Array<ProductVariant>;
     productType: ProductType;
     stock: bigint;
     vendorId: string;
@@ -113,6 +114,12 @@ export interface _CaffeineStorageRefillInformation {
 export interface _CaffeineStorageCreateCertificateResult {
     method: string;
     blob_hash: string;
+}
+export interface ProductVariant {
+    value: string;
+    name: string;
+    stockAdjustment: bigint;
+    priceAdjustment: bigint;
 }
 export interface http_header {
     value: string;
@@ -200,10 +207,12 @@ export interface backendInterface {
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     addProductToStore(storeId: string, product: Product): Promise<void>;
+    addVariant(storeId: string, productId: string, variant: ProductVariant): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createStore(name: string, description: string, contactInfo: string): Promise<StoreResponse>;
     deleteStoreProduct(storeId: string, productId: string): Promise<void>;
+    deleteVariant(storeId: string, productId: string, variantIndex: bigint): Promise<void>;
     getAllStoreIds(): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -223,8 +232,9 @@ export interface backendInterface {
     transform(input: TransformationInput): Promise<TransformationOutput>;
     updateStore(storeId: string, name: string, description: string, updatedContactInfo: string): Promise<StoreResponse>;
     updateStoreProduct(storeId: string, product: Product): Promise<void>;
+    updateVariant(storeId: string, productId: string, variantIndex: bigint, updatedVariant: ProductVariant): Promise<void>;
 }
-import type { ApprovalStatus as _ApprovalStatus, Product as _Product, ProductStatus as _ProductStatus, ProductType as _ProductType, StripeSessionStatus as _StripeSessionStatus, UserApprovalInfo as _UserApprovalInfo, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
+import type { ApprovalStatus as _ApprovalStatus, Product as _Product, ProductStatus as _ProductStatus, ProductType as _ProductType, ProductVariant as _ProductVariant, StripeSessionStatus as _StripeSessionStatus, UserApprovalInfo as _UserApprovalInfo, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _caffeineStorageBlobIsLive(arg0: Uint8Array): Promise<boolean> {
@@ -339,6 +349,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addVariant(arg0: string, arg1: string, arg2: ProductVariant): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addVariant(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addVariant(arg0, arg1, arg2);
+            return result;
+        }
+    }
     async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
         if (this.processError) {
             try {
@@ -392,6 +416,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteStoreProduct(arg0, arg1);
+            return result;
+        }
+    }
+    async deleteVariant(arg0: string, arg1: string, arg2: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteVariant(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteVariant(arg0, arg1, arg2);
             return result;
         }
     }
@@ -661,6 +699,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateVariant(arg0: string, arg1: string, arg2: bigint, arg3: ProductVariant): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateVariant(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateVariant(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
 }
 function from_candid_ApprovalStatus_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _ApprovalStatus): ApprovalStatus {
     return from_candid_variant_n29(_uploadFile, _downloadFile, value);
@@ -748,6 +800,7 @@ function from_candid_record_n32(_uploadFile: (file: ExternalBlob) => Promise<Uin
     status: _ProductStatus;
     title: string;
     description: string;
+    variants: Array<_ProductVariant>;
     productType: _ProductType;
     stock: bigint;
     vendorId: string;
@@ -759,6 +812,7 @@ function from_candid_record_n32(_uploadFile: (file: ExternalBlob) => Promise<Uin
     status: ProductStatus;
     title: string;
     description: string;
+    variants: Array<ProductVariant>;
     productType: ProductType;
     stock: bigint;
     vendorId: string;
@@ -771,6 +825,7 @@ function from_candid_record_n32(_uploadFile: (file: ExternalBlob) => Promise<Uin
         status: from_candid_ProductStatus_n33(_uploadFile, _downloadFile, value.status),
         title: value.title,
         description: value.description,
+        variants: value.variants,
         productType: from_candid_ProductType_n35(_uploadFile, _downloadFile, value.productType),
         stock: value.stock,
         vendorId: value.vendorId,
@@ -913,6 +968,7 @@ function to_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
     status: ProductStatus;
     title: string;
     description: string;
+    variants: Array<ProductVariant>;
     productType: ProductType;
     stock: bigint;
     vendorId: string;
@@ -924,6 +980,7 @@ function to_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
     status: _ProductStatus;
     title: string;
     description: string;
+    variants: Array<_ProductVariant>;
     productType: _ProductType;
     stock: bigint;
     vendorId: string;
@@ -936,6 +993,7 @@ function to_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
         status: to_candid_ProductStatus_n10(_uploadFile, _downloadFile, value.status),
         title: value.title,
         description: value.description,
+        variants: value.variants,
         productType: to_candid_ProductType_n12(_uploadFile, _downloadFile, value.productType),
         stock: value.stock,
         vendorId: value.vendorId,
