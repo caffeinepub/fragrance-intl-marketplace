@@ -1,26 +1,38 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Add access control for store operators - Frontend",
+  "title": "Fix vendor approval flow",
   "requirements": [
     {
       "id": "REQ-2",
-      "summary": "Handle authorization errors from store product operations with user-friendly toast notifications",
+      "summary": "Fix the frontend vendor approval flow so that the ApprovalDashboard correctly calls the approve/reject backend mutations, handles success and error states with toast notifications, and refreshes the approval list after an action.",
       "acceptanceCriteria": [
-        "When a store product mutation (create/update/delete) returns an authorization error, a toast notification is shown to the user explaining they do not have permission.",
-        "No unhandled exceptions or blank screens appear when an unauthorized operation is attempted.",
-        "The StoreProductManager component remains functional after an authorization error."
+        "Clicking 'Approve' on a pending vendor in ApprovalDashboard triggers the correct backend mutation and shows a success toast on completion.",
+        "Clicking 'Reject' on a pending vendor in ApprovalDashboard triggers the correct backend mutation and shows a success toast on completion.",
+        "If the approve or reject mutation fails, an error toast is shown to the admin.",
+        "The approval request list is refreshed/invalidated after a successful approve or reject action so the updated status is reflected immediately.",
+        "VendorDashboard and VendorProducts pages correctly read the updated approval status from the backend after approval and grant access without requiring a page reload."
       ],
       "file_operations": [
         {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Add error handling to useAddStoreProduct, useUpdateStoreProduct, and useDeleteStoreProduct mutations. Wrap mutation functions with try-catch blocks that detect authorization errors (trap messages containing 'Unauthorized' or 'authorization') and display user-friendly toast notifications using the toast utility. Ensure mutations do not throw unhandled exceptions and gracefully return error states to calling components."
+          "description": "Add or verify the useSetApproval mutation hook that calls actor.setApproval(user, status) and properly invalidates the 'approvals' query key on success. Ensure the mutation returns a Promise and includes proper error handling for failed approvals. The hook should accept user Principal and ApprovalStatus as parameters."
         },
         {
-          "path": "frontend/src/components/vendor/StoreProductManager.tsx",
+          "path": "frontend/src/components/admin/ApprovalDashboard.tsx",
           "operation": "modify",
-          "description": "Update error handling in the component to display toast notifications when mutations fail due to authorization errors. Check mutation error states and show appropriate messages like 'You do not have permission to manage products for this store' when authorization fails. Ensure the component UI remains stable and does not crash after an authorization error occurs."
+          "description": "Update the Approve and Reject button click handlers to use the useSetApproval mutation from useQueries. On mutation success, show a success toast with a descriptive message (e.g., 'Vendor approved successfully' or 'Vendor rejected successfully'). On mutation error, show an error toast with the error message. Ensure the approval list automatically refreshes after the mutation succeeds by relying on query invalidation. Disable action buttons while the mutation is in progress to prevent duplicate submissions."
+        },
+        {
+          "path": "frontend/src/pages/VendorDashboard.tsx",
+          "operation": "modify",
+          "description": "Verify that the isCallerApproved check uses fresh data from the backend by ensuring the useIsCallerApproved query has appropriate staleTime/cacheTime settings (prefer fresh data). If the approval status changes from pending to approved, the user should gain access to the dashboard without a manual page reload. Consider adding a refetch mechanism or reducing staleTime to ensure approval status is checked on page navigation."
+        },
+        {
+          "path": "frontend/src/pages/VendorProducts.tsx",
+          "operation": "modify",
+          "description": "Verify that the isCallerApproved check uses fresh data from the backend by ensuring the useIsCallerApproved query has appropriate staleTime/cacheTime settings (prefer fresh data). If the approval status changes from pending to approved, the user should gain access to the products page without a manual page reload. Consider adding a refetch mechanism or reducing staleTime to ensure approval status is checked on page navigation."
         }
       ]
     }

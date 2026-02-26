@@ -2,10 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-on-the-frontend-gracefully-handle-authorization-errors-returned-from-the-backend-for-store-product-operations-display-a-user-friendly-error-message-e-g-toast-notification-when-an-unauthorized-action-is-attempted-rather-than-crashing-or-showing-a-raw-error",
-      "featureTitle": "On the frontend, gracefully handle authorization errors returned from the backend for store product operations. Display a user-friendly error message (e.g., toast notification) when an unauthorized action is attempted, rather than crashing or showing a raw error.",
+      "featureId": "feature-fix-the-frontend-vendor-approval-flow-so-that-the-approvaldashboard-correctly-calls-the-approve-reject-backend-mutations-handles-success-and-error-states-with-toast-notifications-and-refreshes-the-approval-list-after-an-action",
+      "featureTitle": "Fix the frontend vendor approval flow so that the ApprovalDashboard correctly calls the approve/reject backend mutations, handles success and error states with toast notifications, and refreshes the approval list after an action.",
       "files": [
-        "frontend/src/components/vendor/StoreProductManager.tsx",
+        "frontend/src/components/admin/ApprovalDashboard.tsx",
         "frontend/src/hooks/useQueries.ts"
       ],
       "components": [

@@ -131,6 +131,10 @@ export function useIsCallerApproved() {
       return actor.isCallerApproved();
     },
     enabled: !!actor && !isFetching,
+    // Always fetch fresh data so approval status is reflected immediately
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 }
 
@@ -160,6 +164,8 @@ export function useListApprovals() {
       return actor.listApprovals();
     },
     enabled: !!actor && !isFetching,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -636,23 +642,11 @@ export const useListAuctionsByVendor = useGetVendorAuctions;
 export function useCreateAuction() {
   return useMutation({
     mutationFn: async (_params: {
-      vendorId: string;
       productId: string;
-      title: string;
-      description: string;
       startingPrice: bigint;
-      reservePrice: bigint | null;
       endTime: bigint;
     }) => {
       throw new Error('Auction creation not available in current backend version');
-    },
-  });
-}
-
-export function usePlaceBid() {
-  return useMutation({
-    mutationFn: async (_params: { auctionId: string; amount: bigint }) => {
-      throw new Error('Bid placement not available in current backend version');
     },
   });
 }
@@ -673,6 +667,22 @@ export function useFinalizeAuction() {
   });
 }
 
+export function usePlaceBid() {
+  return useMutation({
+    mutationFn: async (_params: { auctionId: string; amount: bigint }) => {
+      throw new Error('Bid placement not available in current backend version');
+    },
+  });
+}
+
+export function useEndAuction() {
+  return useMutation({
+    mutationFn: async (_auctionId: string) => {
+      throw new Error('Auction ending not available in current backend version');
+    },
+  });
+}
+
 // ── Trade Offers (stubbed) ────────────────────────────────────────────────────
 
 export function useGetMyTradeOffers() {
@@ -682,9 +692,6 @@ export function useGetMyTradeOffers() {
     enabled: false,
   });
 }
-
-// Alias for components that use the old name
-export const useListTradeOffersForUser = useGetMyTradeOffers;
 
 export function useGetAllTradeOffers() {
   return useQuery<TradeOffer[]>({
@@ -748,43 +755,24 @@ export function useCancelTradeOffer() {
 
 // ── Stores ────────────────────────────────────────────────────────────────────
 
-export function useGetStoresByVendor(vendorId: Principal | null) {
-  const { actor, isFetching } = useActor();
-
-  return useQuery<StoreResponse[]>({
-    queryKey: ['vendorStores', vendorId?.toString()],
-    queryFn: async () => {
-      if (!actor || !vendorId) return [];
-      return actor.getStoresByVendor(vendorId);
-    },
-    enabled: !!actor && !isFetching && !!vendorId,
-  });
-}
-
-/**
- * Convenience hook that fetches stores for the currently authenticated user.
- * Used by StoreListManager, StoreSelector, and VendorDashboard.
- */
 export function useMyStores() {
   const { actor, isFetching } = useActor();
   const { identity } = useInternetIdentity();
 
-  const principal = identity?.getPrincipal() ?? null;
-
   return useQuery<StoreResponse[]>({
-    queryKey: ['vendorStores', principal?.toString()],
+    queryKey: ['myStores'],
     queryFn: async () => {
-      if (!actor || !principal) return [];
+      if (!actor || !identity) return [];
+      const principal = identity.getPrincipal();
       return actor.getStoresByVendor(principal);
     },
-    enabled: !!actor && !isFetching && !!principal,
+    enabled: !!actor && !isFetching && !!identity,
   });
 }
 
 export function useCreateStore() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
-  const { identity } = useInternetIdentity();
 
   return useMutation({
     mutationFn: async ({
@@ -800,11 +788,7 @@ export function useCreateStore() {
       return actor.createStore(name, description, contactInfo);
     },
     onSuccess: () => {
-      if (identity) {
-        queryClient.invalidateQueries({
-          queryKey: ['vendorStores', identity.getPrincipal().toString()],
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ['myStores'] });
     },
   });
 }
@@ -812,7 +796,6 @@ export function useCreateStore() {
 export function useUpdateStore() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
-  const { identity } = useInternetIdentity();
 
   return useMutation({
     mutationFn: async ({
@@ -830,11 +813,7 @@ export function useUpdateStore() {
       return actor.updateStore(storeId, name, description, contactInfo);
     },
     onSuccess: () => {
-      if (identity) {
-        queryClient.invalidateQueries({
-          queryKey: ['vendorStores', identity.getPrincipal().toString()],
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ['myStores'] });
     },
   });
 }
@@ -842,7 +821,6 @@ export function useUpdateStore() {
 export function useToggleStoreActive() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
-  const { identity } = useInternetIdentity();
 
   return useMutation({
     mutationFn: async (storeId: string) => {
@@ -850,11 +828,7 @@ export function useToggleStoreActive() {
       return actor.toggleStoreActive(storeId);
     },
     onSuccess: () => {
-      if (identity) {
-        queryClient.invalidateQueries({
-          queryKey: ['vendorStores', identity.getPrincipal().toString()],
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ['myStores'] });
     },
   });
 }

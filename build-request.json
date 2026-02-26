@@ -1,54 +1,58 @@
 {
   "kind": "build_request",
-  "title": "Add access control for store operators",
-  "priority": "normal",
+  "title": "Fix vendor approval flow",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Implement backend access control so that only the store owner (or an admin) can create, update, and delete products within a specific store. Calls from principals who do not own the store must return an authorization error.",
+      "text": "Fix the vendor approval backend logic so that when an admin approves a vendor via the ApprovalDashboard, the vendor's approval status is correctly updated in the backend state and persisted across calls.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-last"
         ],
         "quotes": [
-          "access control for store operators"
+          "Vendor approval does not seem to work"
         ]
       },
       "acceptanceCriteria": [
-        "A store owner can create, update, and delete products for their own store.",
-        "A principal who does not own the store receives an authorization error when attempting to create, update, or delete that store's products.",
-        "An admin principal can perform all product management operations regardless of store ownership.",
-        "Existing query operations (listing products) remain accessible without ownership restriction."
+        "Admin can approve a pending vendor approval request from the ApprovalDashboard without errors.",
+        "Admin can reject a pending vendor approval request from the ApprovalDashboard without errors.",
+        "After approval, the vendor's status is reflected as 'approved' when queried from the backend.",
+        "After rejection, the vendor's status is reflected as 'rejected' when queried from the backend.",
+        "A vendor whose approval request is approved gains access to vendor-gated pages (VendorDashboard, VendorProducts) without being redirected or blocked.",
+        "A vendor whose approval request is pending or rejected is still blocked from vendor-gated pages."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "On the frontend, gracefully handle authorization errors returned from the backend for store product operations. Display a user-friendly error message (e.g., toast notification) when an unauthorized action is attempted, rather than crashing or showing a raw error.",
+      "text": "Fix the frontend vendor approval flow so that the ApprovalDashboard correctly calls the approve/reject backend mutations, handles success and error states with toast notifications, and refreshes the approval list after an action.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-last"
         ],
         "quotes": [
-          "access control for store operators"
+          "Vendor approval does not seem to work"
         ]
       },
       "acceptanceCriteria": [
-        "When a store product mutation (create/update/delete) returns an authorization error, a toast notification is shown to the user explaining they do not have permission.",
-        "No unhandled exceptions or blank screens appear when an unauthorized operation is attempted.",
-        "The StoreProductManager component remains functional after an authorization error."
+        "Clicking 'Approve' on a pending vendor in ApprovalDashboard triggers the correct backend mutation and shows a success toast on completion.",
+        "Clicking 'Reject' on a pending vendor in ApprovalDashboard triggers the correct backend mutation and shows a success toast on completion.",
+        "If the approve or reject mutation fails, an error toast is shown to the admin.",
+        "The approval request list is refreshed/invalidated after a successful approve or reject action so the updated status is reflected immediately.",
+        "VendorDashboard and VendorProducts pages correctly read the updated approval status from the backend after approval and grant access without requiring a page reload."
       ]
     }
   ],
   "constraints": [
-    "All backend logic must remain in the single main actor (backend/main.mo).",
-    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui."
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
+    "All Motoko logic must remain in the single main actor at backend/main.mo."
   ],
   "nonGoals": [
-    "Adding new product fields, variants, bundles, or inventory management.",
-    "Changing the existing store or product data schema.",
-    "Wholesaling or multi-tier pricing features."
+    "Changing the vendor registration form or submission flow.",
+    "Adding new approval statuses beyond approve/reject.",
+    "Modifying unrelated admin panels (orders, payouts, auctions, trade offers)."
   ],
   "imageRequirements": {
     "required": [],

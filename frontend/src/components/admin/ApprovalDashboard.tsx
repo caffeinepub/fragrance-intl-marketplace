@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useListApprovals, useSetApproval } from '../../hooks/useQueries';
 import { ApprovalStatus } from '../../backend';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, XCircle, Clock, Users } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Principal } from '@icp-sdk/core/principal';
 
@@ -17,22 +17,34 @@ const statusConfig = {
 export default function ApprovalDashboard() {
   const { data: approvals, isLoading } = useListApprovals();
   const setApproval = useSetApproval();
+  // Track which principal is currently being processed
+  const [processingPrincipal, setProcessingPrincipal] = useState<string | null>(null);
 
   const handleApprove = async (principal: Principal) => {
+    const principalStr = principal.toString();
+    setProcessingPrincipal(principalStr);
     try {
       await setApproval.mutateAsync({ user: principal, status: ApprovalStatus.approved });
-      toast.success('User approved');
-    } catch {
-      toast.error('Failed to approve user');
+      toast.success('Vendor approved successfully');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(`Failed to approve vendor: ${message}`);
+    } finally {
+      setProcessingPrincipal(null);
     }
   };
 
   const handleReject = async (principal: Principal) => {
+    const principalStr = principal.toString();
+    setProcessingPrincipal(principalStr);
     try {
       await setApproval.mutateAsync({ user: principal, status: ApprovalStatus.rejected });
-      toast.success('User rejected');
-    } catch {
-      toast.error('Failed to reject user');
+      toast.success('Vendor rejected successfully');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(`Failed to reject vendor: ${message}`);
+    } finally {
+      setProcessingPrincipal(null);
     }
   };
 
@@ -61,6 +73,7 @@ export default function ApprovalDashboard() {
         const config = statusConfig[item.status];
         const Icon = config.icon;
         const principalStr = item.principal.toString();
+        const isProcessing = processingPrincipal === principalStr;
 
         return (
           <div
@@ -85,19 +98,27 @@ export default function ApprovalDashboard() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleApprove(item.principal)}
-                  disabled={setApproval.isPending}
-                  className="border-green-500/40 text-green-700 hover:bg-green-50 text-xs"
+                  disabled={isProcessing}
+                  className="border-green-500/40 text-green-700 hover:bg-green-50 text-xs min-w-[80px]"
                 >
-                  Approve
+                  {isProcessing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    'Approve'
+                  )}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => handleReject(item.principal)}
-                  disabled={setApproval.isPending}
-                  className="border-destructive/40 text-destructive hover:bg-destructive/5 text-xs"
+                  disabled={isProcessing}
+                  className="border-destructive/40 text-destructive hover:bg-destructive/5 text-xs min-w-[80px]"
                 >
-                  Reject
+                  {isProcessing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    'Reject'
+                  )}
                 </Button>
               </div>
             )}

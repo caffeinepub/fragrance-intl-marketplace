@@ -3,12 +3,14 @@
   "projectStateVersion": 3,
   "summary": "New project",
   "architectural_notes": [],
-  "known_issues": [],
-  "isFixRequest": false,
+  "known_issues": [
+    "Vendor approval is not working as expected"
+  ],
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-on-the-frontend-gracefully-handle-authorization-errors-returned-from-the-backend-for-store-product-operations-display-a-user-friendly-error-message-e-g-toast-notification-when-an-unauthorized-action-is-attempted-rather-than-crashing-or-showing-a-raw-error",
-      "title": "On the frontend, gracefully handle authorization errors returned from the backend for store product operations. Display a user-friendly error message (e.g., toast notification) when an unauthorized action is attempted, rather than crashing or showing a raw error.",
+      "id": "feature-fix-the-frontend-vendor-approval-flow-so-that-the-approvaldashboard-correctly-calls-the-approve-reject-backend-mutations-handles-success-and-error-states-with-toast-notifications-and-refreshes-the-approval-list-after-an-action",
+      "title": "Fix the frontend vendor approval flow so that the ApprovalDashboard correctly calls the approve/reject backend mutations, handles success and error states with toast notifications, and refreshes the approval list after an action.",
       "reqIds": [
         "REQ-2"
       ],
@@ -18,14 +20,14 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Implement backend access control so that only the store owner (or an admin) can create, update, and delete products within a specific store. Calls from principals who do not own the store must return an authorization error.",
+      "summary": "Fix the vendor approval backend logic so that when an admin approves a vendor via the ApprovalDashboard, the vendor's approval status is correctly updated in the backend state and persisted across calls.",
       "reqIds": [
         "REQ-1"
       ],
       "status": "pending"
     }
   ],
-  "projectName": "Add access control for store operators",
+  "projectName": "Fix vendor approval flow",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

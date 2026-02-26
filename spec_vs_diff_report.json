@@ -1,24 +1,41 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T12:37:02.321Z",
-  "summary": "The diff implements both REQ-1 (backend access control) and REQ-2 (frontend authorization error handling). The backend/main.mo imports AccessControl and MixinAuthorization modules suggesting access control scaffolding is in place. The frontend StoreProductManager.tsx includes a getErrorMessage helper that detects 'UNAUTHORIZED' errors and returns a user-friendly message, and uses toast notifications. useQueries.ts includes an isAuthorizationError helper and authorization error handling for store product mutations. However, the backend diff is truncated and the actual enforcement logic checking caller principal against store owner in createStoreProduct, updateStoreProduct, deleteStoreProduct cannot be confirmed from the visible portion.",
+  "generatedAt": "2026-02-26T13:57:37.319Z",
+  "summary": "The diff implements most of the vendor approval flow fixes. The frontend ApprovalDashboard (REQ-2) is well-implemented with approve/reject mutations, success/error toast notifications, and loading states. The useQueries.ts hook includes approval-related hooks with staleTime: 0 and refetchOnMount/refetchOnWindowFocus for fresh data. However, there is insufficient evidence that the useSetApproval mutation invalidates the approvals list query after success (the hook definition is truncated), and the backend fix (REQ-1) cannot be fully verified due to truncation of main.mo. The VendorDashboard and VendorProducts pages are mentioned in frontend-file-summaries.txt as guarded by approval status, satisfying those ACs.",
   "missing_requirements": [
     {
+      "id": "REQ-2",
+      "requirement": "The approval request list is refreshed/invalidated after a successful approve or reject action so the updated status is reflected immediately.",
+      "reason": "The useSetApproval mutation definition is truncated in useQueries.ts and there is no visible evidence that it calls queryClient.invalidateQueries for the approvals list key after a successful mutation.",
+      "evidence": [
+        "frontend/src/hooks/useQueries.ts"
+      ]
+    },
+    {
       "id": "REQ-1",
-      "requirement": "Only the store owner (or an admin) can create, update, and delete products within a specific store. Calls from principals who do not own the store must return an authorization error.",
-      "reason": "The backend/main.mo diff is truncated and only shows imports and data structure definitions. The actual enforcement logic checking caller principal against store.vendorId in addProductToStore, updateStoreProduct, deleteStoreProduct is not visible in the diff. It cannot be confirmed that the access control check is actually applied to these mutation functions.",
+      "requirement": "Fix the vendor approval backend logic so that vendor approval status is correctly updated in backend state and persisted across calls.",
+      "reason": "The backend/main.mo diff is truncated and does not show the actual approve/reject handler implementations or state persistence logic. The approvalState initialization is visible but the critical mutation functions cannot be verified.",
       "evidence": [
         "backend/main.mo"
       ]
     }
   ],
-  "hallucinated_features": [],
-  "confidence": 0.55,
+  "hallucinated_features": [
+    {
+      "description": "CreateAuctionForm component was modified",
+      "reason": "The build request explicitly lists modifying auction panels as a non-goal. The CreateAuctionForm.tsx file appears in the diff as a modified file unrelated to the vendor approval flow.",
+      "evidence": [
+        "frontend/src/components/vendor/CreateAuctionForm.tsx"
+      ]
+    }
+  ],
+  "confidence": 0.52,
   "changed_files": [
     "backend/main.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/vendor/StoreProductManager.tsx",
+    "frontend/src/components/admin/ApprovalDashboard.tsx",
+    "frontend/src/components/vendor/CreateAuctionForm.tsx",
     "frontend/src/hooks/useQueries.ts",
     "project_state.json"
   ]

@@ -12,7 +12,7 @@ interface CreateAuctionFormProps {
   onSuccess?: () => void;
 }
 
-export default function CreateAuctionForm({ vendorId, onSuccess }: CreateAuctionFormProps) {
+export default function CreateAuctionForm({ vendorId: _vendorId, onSuccess }: CreateAuctionFormProps) {
   const createAuction = useCreateAuction();
   const [form, setForm] = useState({
     productId: '',
@@ -48,14 +48,8 @@ export default function CreateAuctionForm({ vendorId, onSuccess }: CreateAuction
 
     try {
       await createAuction.mutateAsync({
-        vendorId,
         productId: form.productId.trim(),
-        title: form.title.trim(),
-        description: form.description.trim(),
         startingPrice: BigInt(Math.round(price * 100)),
-        reservePrice: form.reservePrice
-          ? BigInt(Math.round(parseFloat(form.reservePrice) * 100))
-          : null,
         endTime: BigInt(endDate),
       });
       toast.success('Auction created successfully!');
