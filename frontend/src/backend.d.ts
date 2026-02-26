@@ -7,11 +7,24 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
+export interface Product {
+    id: string;
+    status: ProductStatus;
+    title: string;
+    description: string;
+    productType: ProductType;
+    stock: bigint;
+    vendorId: string;
+    category: string;
+    image?: Principal;
+    price: bigint;
+}
 export interface TransformationOutput {
     status: bigint;
     body: Uint8Array;
     headers: Array<http_header>;
 }
+export type Time = bigint;
 export interface http_header {
     value: string;
     name: string;
@@ -53,13 +66,13 @@ export interface StripeConfiguration {
     secretKey: string;
 }
 export interface StoreResponse {
-    storeId: string;
+    id: string;
+    contactInfo: string;
     name: string;
-    createdAt: bigint;
+    createdAt: Time;
     description: string;
     isActive: boolean;
-    logoUrl: string;
-    contactEmail: string;
+    vendorId: Principal;
 }
 export interface UserProfile {
     name: string;
@@ -71,33 +84,43 @@ export enum ApprovalStatus {
     approved = "approved",
     rejected = "rejected"
 }
+export enum ProductStatus {
+    active = "active",
+    inactive = "inactive"
+}
+export enum ProductType {
+    service = "service",
+    physical = "physical",
+    digital = "digital"
+}
 export enum UserRole {
     admin = "admin",
     user = "user",
     guest = "guest"
 }
 export interface backendInterface {
-    activateStore(storeId: string): Promise<StoreResponse>;
+    addProductToStore(storeId: string, product: Product): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
-    createStore(name: string, description: string, contactEmail: string, logoUrl: string): Promise<StoreResponse>;
-    deactivateStore(storeId: string): Promise<StoreResponse>;
+    createStore(name: string, description: string, contactInfo: string): Promise<StoreResponse>;
+    deleteStoreProduct(storeId: string, productId: string): Promise<void>;
+    getAllStoreIds(): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
-    getMyStores(): Promise<Array<StoreResponse>>;
-    getStoreById(storeId: string): Promise<StoreResponse | null>;
-    getStoresByVendor(vendor: Principal): Promise<Array<StoreResponse>>;
+    getStoresByVendor(vendorId: Principal): Promise<Array<StoreResponse>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isCallerApproved(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
     listApprovals(): Promise<Array<UserApprovalInfo>>;
+    listStoreProducts(storeId: string): Promise<Array<Product>>;
     requestApproval(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
     toggleStoreActive(storeId: string): Promise<StoreResponse>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
-    updateStore(storeId: string, name: string, description: string, contactEmail: string, logoUrl: string): Promise<StoreResponse>;
+    updateStore(storeId: string, name: string, description: string, updatedContactInfo: string): Promise<StoreResponse>;
+    updateStoreProduct(storeId: string, product: Product): Promise<void>;
 }

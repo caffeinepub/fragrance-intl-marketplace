@@ -36,13 +36,13 @@ export default function StoreSelector({ selectedStoreId, onStoreChange }: StoreS
     <div className="flex items-center gap-3">
       <Store className="w-4 h-4 text-gold shrink-0" />
       <span className="font-sans text-sm text-muted-foreground whitespace-nowrap">Active Store:</span>
-      <Select value={selectedStoreId ?? stores[0]?.storeId} onValueChange={onStoreChange}>
+      <Select value={selectedStoreId ?? stores[0]?.id} onValueChange={onStoreChange}>
         <SelectTrigger className="w-56 border-border bg-card font-sans text-sm">
           <SelectValue placeholder="Select a store" />
         </SelectTrigger>
         <SelectContent>
           {stores.map((store) => (
-            <SelectItem key={store.storeId} value={store.storeId}>
+            <SelectItem key={store.id} value={store.id}>
               <div className="flex items-center gap-2">
                 <span className="truncate max-w-[140px]">{store.name}</span>
                 <Badge

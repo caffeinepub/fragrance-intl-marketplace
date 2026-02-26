@@ -1,78 +1,45 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T01:35:27.910Z",
+  "generatedAt": "2026-02-26T12:37:02.324Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 5,
-    "implemented": 2,
+    "total": 2,
+    "implemented": 1,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Implement store management backend support: add createStore, updateStore, getStoresByVendor, and toggleStoreActive query/update methods to the main Motoko actor, persisting store records in stable state.",
+        "summary": "Implement backend access control so that only the store owner (or an admin) can create, update, and delete products within a specific store. Calls from principals who do not own the store must return an authorization error.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
         "id": "REQ-2",
-        "summary": "Wire up store management React Query hooks in useQueries.ts: add useCreateStore, useUpdateStore, useGetStoresByVendor, and useToggleStoreActive hooks that call the corresponding backend methods.",
-        "status": "missing",
-        "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts"
-        ],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-3",
-        "summary": "Integrate the StoreFormModal component into the vendor UI: connect it to useCreateStore and useUpdateStore hooks so vendors can create and edit stores via the modal form.",
-        "status": "missing",
-        "plannedFiles": [
-          "frontend/src/components/vendor/StoreFormModal.tsx"
-        ],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-4",
-        "summary": "Integrate the StoreListManager component into the VendorDashboard page: render the list of the vendor's stores with create, edit, and toggle-active controls fully functional using the store hooks.",
+        "summary": "On the frontend, gracefully handle authorization errors returned from the backend for store product operations. Display a user-friendly error message (e.g., toast notification) when an unauthorized action is attempted, rather than crashing or showing a raw error.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/vendor/StoreListManager.tsx",
-          "frontend/src/pages/VendorDashboard.tsx"
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/vendor/StoreProductManager.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/VendorDashboard.tsx"
-        ]
-      },
-      {
-        "id": "REQ-5",
-        "summary": "Integrate the StoreSelector component into the VendorDashboard page so vendors can select their active store context, and persist the selected store ID in component state for use by other vendor panels.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/vendor/StoreSelector.tsx",
-          "frontend/src/pages/VendorDashboard.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/VendorDashboard.tsx"
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/vendor/StoreProductManager.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
-    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
-    "frontend/src/pages/VendorDashboard.tsx",
+    "frontend/src/components/vendor/StoreProductManager.tsx",
+    "frontend/src/hooks/useQueries.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

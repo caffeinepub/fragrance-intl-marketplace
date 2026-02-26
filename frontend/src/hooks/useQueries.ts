@@ -5,6 +5,7 @@ import {
   type StoreResponse,
   ApprovalStatus,
   UserRole,
+  type Product as BackendProduct,
 } from '../backend';
 import type { UserApprovalInfo } from '../backend';
 import type { Principal } from '@icp-sdk/core/principal';
@@ -26,6 +27,16 @@ import type {
   TradeOffer,
 } from '../types';
 import { ExternalBlob } from '../backend';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function isAuthorizationError(err: unknown): boolean {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return msg.includes('unauthorized') || msg.includes('authorization');
+  }
+  return false;
+}
 
 // ── User Profile ─────────────────────────────────────────────────────────────
 
@@ -174,8 +185,6 @@ export function useGetVendorProfile(_id: string | null): {
   data: VendorProfile | undefined;
   isLoading: boolean;
 } {
-  // Vendor profile management is handled locally via localStorage
-  // until the backend re-exposes these endpoints
   return { data: undefined, isLoading: false };
 }
 
@@ -264,6 +273,135 @@ export function useDeleteProduct() {
   return useMutation({
     mutationFn: async (_id: string) => {
       throw new Error('Product deletion not available in current backend version');
+    },
+  });
+}
+
+// ── Store Products ────────────────────────────────────────────────────────────
+
+/** Convert a backend Product (bigint fields) to a local Product (number fields) */
+function backendProductToLocal(p: BackendProduct): Product {
+  return {
+    id: p.id,
+    vendorId: p.vendorId,
+    title: p.title,
+    description: p.description,
+    price: Number(p.price),
+    category: p.category,
+    productType: p.productType as ProductType,
+    stock: Number(p.stock),
+    image: p.image ? p.image.toString() : null,
+    status: p.status as 'active' | 'inactive',
+  };
+}
+
+/** Convert a local Product (number fields) to a backend Product (bigint fields) */
+function localProductToBackend(p: Product): BackendProduct {
+  return {
+    id: p.id,
+    vendorId: p.vendorId,
+    title: p.title,
+    description: p.description,
+    price: BigInt(Math.round(p.price)),
+    category: p.category,
+    productType: p.productType as BackendProduct['productType'],
+    stock: BigInt(Math.round(p.stock)),
+    image: undefined,
+    status: p.status as BackendProduct['status'],
+  };
+}
+
+export function useListStoreProducts(storeId: string | null) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<Product[]>({
+    queryKey: ['storeProducts', storeId],
+    queryFn: async () => {
+      if (!actor || !storeId) return [];
+      const results = await actor.listStoreProducts(storeId);
+      return results.map(backendProductToLocal);
+    },
+    enabled: !!actor && !isFetching && !!storeId,
+  });
+}
+
+export function useAddProductToStore() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ storeId, product }: { storeId: string; product: Product }) => {
+      if (!actor) throw new Error('Actor not available');
+      try {
+        return await actor.addProductToStore(storeId, localProductToBackend(product));
+      } catch (err: unknown) {
+        if (isAuthorizationError(err)) {
+          throw new Error('UNAUTHORIZED');
+        }
+        throw err;
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+    },
+    onError: (err: Error) => {
+      if (err.message === 'UNAUTHORIZED') {
+        toast.error('You do not have permission to manage products for this store.');
+      }
+    },
+  });
+}
+
+export function useUpdateStoreProduct() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ storeId, product }: { storeId: string; product: Product }) => {
+      if (!actor) throw new Error('Actor not available');
+      try {
+        return await actor.updateStoreProduct(storeId, localProductToBackend(product));
+      } catch (err: unknown) {
+        if (isAuthorizationError(err)) {
+          throw new Error('UNAUTHORIZED');
+        }
+        throw err;
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+    },
+    onError: (err: Error) => {
+      if (err.message === 'UNAUTHORIZED') {
+        toast.error('You do not have permission to manage products for this store.');
+      }
+    },
+  });
+}
+
+export function useDeleteStoreProduct() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ storeId, productId }: { storeId: string; productId: string }) => {
+      if (!actor) throw new Error('Actor not available');
+      try {
+        return await actor.deleteStoreProduct(storeId, productId);
+      } catch (err: unknown) {
+        if (isAuthorizationError(err)) {
+          throw new Error('UNAUTHORIZED');
+        }
+        throw err;
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+    },
+    onError: (err: Error) => {
+      if (err.message === 'UNAUTHORIZED') {
+        toast.error('You do not have permission to manage products for this store.');
+      }
     },
   });
 }
@@ -414,7 +552,7 @@ export function useOrderTransaction(_orderId: string | null) {
   });
 }
 
-// ── Stripe (stubbed) ──────────────────────────────────────────────────────────
+// ── Stripe ────────────────────────────────────────────────────────────────────
 
 export function useCreateStripeCheckoutSession() {
   const { actor } = useActor();
@@ -556,27 +694,16 @@ export function useGetAllTradeOffers() {
   });
 }
 
-// Alias for components that use the old name
-export const useListAllTradeOffers = useGetAllTradeOffers;
-
 export function useCreateTradeOffer() {
   return useMutation({
     mutationFn: async (_params: {
-      offeredItems: { productId: string; quantity: bigint }[];
-      requestedItems: { productId: string; quantity: bigint }[];
+      targetPrincipal: string;
+      offeredItems: Array<{ productId: string; quantity: bigint }>;
+      requestedItems: Array<{ productId: string; quantity: bigint }>;
       cashAdjustment: bigint;
       note: string;
-      targetPrincipal: string;
     }) => {
       throw new Error('Trade offer creation not available in current backend version');
-    },
-  });
-}
-
-export function useRespondToTradeOffer() {
-  return useMutation({
-    mutationFn: async (_params: { offerId: string; action: 'accept' | 'reject' | 'cancel' }) => {
-      throw new Error('Trade offer response not available in current backend version');
     },
   });
 }
@@ -597,20 +724,12 @@ export function useRejectTradeOffer() {
   });
 }
 
-export function useCancelTradeOffer() {
-  return useMutation({
-    mutationFn: async (_offerId: string) => {
-      throw new Error('Trade offer cancellation not available in current backend version');
-    },
-  });
-}
-
 export function useCounterTradeOffer() {
   return useMutation({
     mutationFn: async (_params: {
       offerId: string;
-      offeredItems: { productId: string; quantity: bigint }[];
-      requestedItems: { productId: string; quantity: bigint }[];
+      offeredItems: Array<{ productId: string; quantity: bigint }>;
+      requestedItems: Array<{ productId: string; quantity: bigint }>;
       cashAdjustment: bigint;
       note: string;
     }) => {
@@ -619,59 +738,73 @@ export function useCounterTradeOffer() {
   });
 }
 
-// ── Stores ────────────────────────────────────────────────────────────────────
-
-export function useMyStores() {
-  const { actor, isFetching } = useActor();
-
-  return useQuery<StoreResponse[]>({
-    queryKey: ['myStores'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getMyStores();
+export function useCancelTradeOffer() {
+  return useMutation({
+    mutationFn: async (_offerId: string) => {
+      throw new Error('Trade offer cancellation not available in current backend version');
     },
-    enabled: !!actor && !isFetching,
   });
 }
 
-export function useStoreById(storeId: string | null) {
+// ── Stores ────────────────────────────────────────────────────────────────────
+
+export function useGetStoresByVendor(vendorId: Principal | null) {
   const { actor, isFetching } = useActor();
 
-  return useQuery<StoreResponse | null>({
-    queryKey: ['store', storeId],
+  return useQuery<StoreResponse[]>({
+    queryKey: ['vendorStores', vendorId?.toString()],
     queryFn: async () => {
-      if (!actor || !storeId) throw new Error('Actor or storeId not available');
-      return actor.getStoreById(storeId);
+      if (!actor || !vendorId) return [];
+      return actor.getStoresByVendor(vendorId);
     },
-    enabled: !!actor && !isFetching && !!storeId,
+    enabled: !!actor && !isFetching && !!vendorId,
+  });
+}
+
+/**
+ * Convenience hook that fetches stores for the currently authenticated user.
+ * Used by StoreListManager, StoreSelector, and VendorDashboard.
+ */
+export function useMyStores() {
+  const { actor, isFetching } = useActor();
+  const { identity } = useInternetIdentity();
+
+  const principal = identity?.getPrincipal() ?? null;
+
+  return useQuery<StoreResponse[]>({
+    queryKey: ['vendorStores', principal?.toString()],
+    queryFn: async () => {
+      if (!actor || !principal) return [];
+      return actor.getStoresByVendor(principal);
+    },
+    enabled: !!actor && !isFetching && !!principal,
   });
 }
 
 export function useCreateStore() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
+  const { identity } = useInternetIdentity();
 
   return useMutation({
     mutationFn: async ({
       name,
       description,
-      contactEmail,
-      logoUrl,
+      contactInfo,
     }: {
       name: string;
       description: string;
-      contactEmail: string;
-      logoUrl: string;
+      contactInfo: string;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.createStore(name, description, contactEmail, logoUrl);
+      return actor.createStore(name, description, contactInfo);
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['myStores'] });
-      toast.success(`Store "${data.name}" created successfully!`);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create store');
+    onSuccess: () => {
+      if (identity) {
+        queryClient.invalidateQueries({
+          queryKey: ['vendorStores', identity.getPrincipal().toString()],
+        });
+      }
     },
   });
 }
@@ -679,69 +812,49 @@ export function useCreateStore() {
 export function useUpdateStore() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
+  const { identity } = useInternetIdentity();
 
   return useMutation({
     mutationFn: async ({
       storeId,
       name,
       description,
-      contactEmail,
-      logoUrl,
+      contactInfo,
     }: {
       storeId: string;
       name: string;
       description: string;
-      contactEmail: string;
-      logoUrl: string;
+      contactInfo: string;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.updateStore(storeId, name, description, contactEmail, logoUrl);
+      return actor.updateStore(storeId, name, description, contactInfo);
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['myStores'] });
-      queryClient.invalidateQueries({ queryKey: ['store', data.storeId] });
-      toast.success(`Store "${data.name}" updated successfully!`);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update store');
-    },
-  });
-}
-
-export function useDeactivateStore() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (storeId: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.deactivateStore(storeId);
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['myStores'] });
-      toast.success(`Store "${data.name}" deactivated.`);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to deactivate store');
+    onSuccess: () => {
+      if (identity) {
+        queryClient.invalidateQueries({
+          queryKey: ['vendorStores', identity.getPrincipal().toString()],
+        });
+      }
     },
   });
 }
 
-export function useActivateStore() {
+export function useToggleStoreActive() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
+  const { identity } = useInternetIdentity();
 
   return useMutation({
     mutationFn: async (storeId: string) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.activateStore(storeId);
+      return actor.toggleStoreActive(storeId);
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['myStores'] });
-      toast.success(`Store "${data.name}" activated!`);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to activate store');
+    onSuccess: () => {
+      if (identity) {
+        queryClient.invalidateQueries({
+          queryKey: ['vendorStores', identity.getPrincipal().toString()],
+        });
+      }
     },
   });
 }

@@ -1,7 +1,6 @@
 import Iter "mo:core/Iter";
 import Array "mo:core/Array";
 import Map "mo:core/Map";
-import Order "mo:core/Order";
 import Time "mo:core/Time";
 import List "mo:core/List";
 import Int "mo:core/Int";
@@ -16,10 +15,8 @@ import Storage "blob-storage/Storage";
 import UserApproval "user-approval/approval";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
-import Migration "migration";
+import Order "mo:core/Order";
 
-// Use explicit migration logic (see migration.mo)
-(with migration = Migration.run)
 actor {
   include MixinStorage();
   let accessControlState = AccessControl.initState();
@@ -44,15 +41,17 @@ actor {
   };
 
   type Store = {
-    storeId : Text;
-    vendorPrincipal : Principal;
+    id : Text;
+    vendorId : Principal;
     name : Text;
     description : Text;
-    contactEmail : Text;
-    logoUrl : Text;
+    contactInfo : Text;
     isActive : Bool;
-    createdAt : Int;
+    createdAt : Time.Time;
   };
+
+  let vendorStoreMap = Map.empty<Principal, List.List<Text>>();
+  let stores = Map.empty<Text, Store>();
 
   type VendorProfile = {
     id : Text;
@@ -77,6 +76,9 @@ actor {
     image : ?Principal;
     status : ProductStatus;
   };
+
+  // Store-level product map: storeId -> (productId -> Product)
+  let storeProducts = Map.empty<Text, Map.Map<Text, Product>>();
 
   module Product {
     public func compareByPrice(a : Product, b : Product) : Order.Order {
@@ -146,13 +148,13 @@ actor {
   };
 
   public type StoreResponse = {
-    storeId : Text;
+    id : Text;
+    vendorId : Principal;
     name : Text;
     description : Text;
-    contactEmail : Text;
-    logoUrl : Text;
+    contactInfo : Text;
     isActive : Bool;
-    createdAt : Int;
+    createdAt : Time.Time;
   };
 
   let userProfiles = Map.empty<Principal, UserProfile>();
@@ -162,13 +164,10 @@ actor {
   let orders = Map.empty<Text, Order>();
   let payouts = Map.empty<Text, Payout>();
 
-  let stores = Map.empty<Text, Store>();
-  let vendorStores = Map.empty<Principal, List.List<Text>>();
-
   var commissionRate : Nat = 5;
   var stripeConfig : ?Stripe.StripeConfiguration = null;
 
-  public query func isStripeConfigured() : async Bool {
+  public query ({ caller }) func isStripeConfigured() : async Bool {
     stripeConfig != null;
   };
 
@@ -227,295 +226,161 @@ actor {
 
   // Store management functions
 
-  // getMyStores: requires authenticated user
-  public query ({ caller }) func getMyStores() : async [StoreResponse] {
+  public shared ({ caller }) func createStore(name : Text, description : Text, contactInfo : Text) : async StoreResponse {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can view their stores");
-    };
-    let storeIds = switch (vendorStores.get(caller)) {
-      case (null) { List.empty<Text>() };
-      case (?ids) { ids };
-    };
-    let storesArray = storeIds.toArray();
-    let storeResponses = storesArray.map(
-      func(storeId) {
-        switch (stores.get(storeId)) {
-          case (null) {
-            {
-              storeId = storeId;
-              name = "Unknown";
-              description = "";
-              contactEmail = "";
-              logoUrl = "";
-              isActive = false;
-              createdAt = 0;
-            };
-          };
-          case (?store) {
-            {
-              storeId = store.storeId;
-              name = store.name;
-              description = store.description;
-              contactEmail = store.contactEmail;
-              logoUrl = store.logoUrl;
-              isActive = store.isActive;
-              createdAt = store.createdAt;
-            };
-          };
-        };
-      }
-    );
-    storeResponses;
-  };
-
-  // getStoresByVendor: public query, anyone can view stores belonging to a vendor
-  public query func getStoresByVendor(vendor : Principal) : async [StoreResponse] {
-    let storeIds = switch (vendorStores.get(vendor)) {
-      case (null) { List.empty<Text>() };
-      case (?ids) { ids };
-    };
-    let storesArray = storeIds.toArray();
-    let storeResponses = storesArray.map(
-      func(storeId) {
-        switch (stores.get(storeId)) {
-          case (null) {
-            {
-              storeId = storeId;
-              name = "Unknown";
-              description = "";
-              contactEmail = "";
-              logoUrl = "";
-              isActive = false;
-              createdAt = 0;
-            };
-          };
-          case (?store) {
-            {
-              storeId = store.storeId;
-              name = store.name;
-              description = store.description;
-              contactEmail = store.contactEmail;
-              logoUrl = store.logoUrl;
-              isActive = store.isActive;
-              createdAt = store.createdAt;
-            };
-          };
-        };
-      }
-    );
-    storeResponses;
-  };
-
-  // getStoreById: public, anyone can view a store
-  public query func getStoreById(storeId : Text) : async ?StoreResponse {
-    switch (stores.get(storeId)) {
-      case (null) { null };
-      case (?store) {
-        ?{
-          storeId = store.storeId;
-          name = store.name;
-          description = store.description;
-          contactEmail = store.contactEmail;
-          logoUrl = store.logoUrl;
-          isActive = store.isActive;
-          createdAt = store.createdAt;
-        };
-      };
-    };
-  };
-
-  // createStore: approved vendors only (admin counts as approved), max 5 stores per vendor
-  public shared ({ caller }) func createStore(name : Text, description : Text, contactEmail : Text, logoUrl : Text) : async StoreResponse {
-    // Must be an authenticated user
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can create stores");
-    };
-    // Must be an approved vendor (or admin)
-    if (not (AccessControl.isAdmin(accessControlState, caller)) and not UserApproval.isApproved(approvalState, caller)) {
-      Runtime.trap("Unauthorized: Only approved vendors can create stores");
+      Runtime.trap("Only authenticated users can create stores");
     };
 
-    // Check max 5 stores per vendor
-    switch (vendorStores.get(caller)) {
-      case (null) {};
-      case (?existingStores) {
-        if (existingStores.size() >= 5) {
-          Runtime.trap("Vendor cannot have more than 5 stores");
-        };
+    let existingStores = switch (vendorStoreMap.get(caller)) {
+      case (?storeList) { storeList };
+      case (null) {
+        let newList = List.empty<Text>();
+        newList;
       };
     };
 
-    let storeId = "store_" # Time.now().toText();
-    let newStore = {
-      storeId;
-      vendorPrincipal = caller;
+    if (existingStores.size() >= 5) {
+      Runtime.trap("You cannot have more than 5 stores");
+    };
+
+    let storeId = "store-" # Time.now().toText();
+    let newStore : Store = {
+      id = storeId;
+      vendorId = caller;
       name;
       description;
-      contactEmail;
-      logoUrl;
+      contactInfo;
       isActive = true;
       createdAt = Time.now();
     };
 
     stores.add(storeId, newStore);
-    switch (vendorStores.get(caller)) {
-      case (null) {
-        let newStoreList = List.empty<Text>();
-        newStoreList.add(storeId);
-        vendorStores.add(caller, newStoreList);
-      };
-      case (?existingStoreList) { existingStoreList.add(storeId) };
-    };
+    existingStores.add(storeId);
+    vendorStoreMap.add(caller, existingStores);
 
     {
-      storeId = newStore.storeId;
+      id = newStore.id;
+      vendorId = newStore.vendorId;
       name = newStore.name;
       description = newStore.description;
-      contactEmail = newStore.contactEmail;
-      logoUrl = newStore.logoUrl;
+      contactInfo = newStore.contactInfo;
       isActive = newStore.isActive;
       createdAt = newStore.createdAt;
     };
   };
 
-  // updateStore: authenticated user + store owner only
-  public shared ({ caller }) func updateStore(storeId : Text, name : Text, description : Text, contactEmail : Text, logoUrl : Text) : async StoreResponse {
+  public shared ({ caller }) func updateStore(storeId : Text, name : Text, description : Text, updatedContactInfo : Text) : async StoreResponse {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can update stores");
+      Runtime.trap("Only authenticated users can edit stores");
     };
-    switch (stores.get(storeId)) {
+
+    let store = switch (stores.get(storeId)) {
+      case (?store) { store };
       case (null) { Runtime.trap("Store not found") };
-      case (?store) {
-        if (store.vendorPrincipal != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-          Runtime.trap("Unauthorized: Only the store owner can update this store");
-        };
-        let updatedStore = {
-          storeId = store.storeId;
-          vendorPrincipal = store.vendorPrincipal;
-          name;
-          description;
-          contactEmail;
-          logoUrl;
-          isActive = store.isActive;
-          createdAt = store.createdAt;
-        };
-        stores.add(storeId, updatedStore);
-        {
-          storeId = updatedStore.storeId;
-          name = updatedStore.name;
-          description = updatedStore.description;
-          contactEmail = updatedStore.contactEmail;
-          logoUrl = updatedStore.logoUrl;
-          isActive = updatedStore.isActive;
-          createdAt = updatedStore.createdAt;
-        };
+    };
+
+    if (store.vendorId != caller) {
+      Runtime.trap("Only the store owner can update this store");
+    };
+
+    let updatedStore : Store = {
+      id = store.id;
+      vendorId = store.vendorId;
+      name;
+      description;
+      contactInfo = updatedContactInfo;
+      isActive = store.isActive;
+      createdAt = store.createdAt;
+    };
+
+    stores.add(storeId, updatedStore);
+
+    {
+      id = updatedStore.id;
+      vendorId = updatedStore.vendorId;
+      name = updatedStore.name;
+      description = updatedStore.description;
+      contactInfo = updatedStore.contactInfo;
+      isActive = updatedStore.isActive;
+      createdAt = updatedStore.createdAt;
+    };
+  };
+
+  public query ({ caller }) func getStoresByVendor(vendorId : Principal) : async [StoreResponse] {
+    switch (vendorStoreMap.get(vendorId)) {
+      case (null) { [] };
+      case (?storeIds) {
+        let storesArray = storeIds.toArray();
+        storesArray.map(
+          func(storeId) {
+            switch (stores.get(storeId)) {
+              case (null) {
+                {
+                  id = storeId;
+                  vendorId = vendorId;
+                  name = "Unknown";
+                  description = "";
+                  contactInfo = "";
+                  isActive = false;
+                  createdAt = 0;
+                };
+              };
+              case (?store) {
+                {
+                  id = store.id;
+                  vendorId = store.vendorId;
+                  name = store.name;
+                  description = store.description;
+                  contactInfo = store.contactInfo;
+                  isActive = store.isActive;
+                  createdAt = store.createdAt;
+                };
+              };
+            };
+          }
+        );
       };
     };
   };
 
-  // toggleStoreActive: authenticated user + store owner only (or admin)
   public shared ({ caller }) func toggleStoreActive(storeId : Text) : async StoreResponse {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can toggle store status");
+      Runtime.trap("Only authenticated users can toggle store status");
     };
-    switch (stores.get(storeId)) {
+
+    let store = switch (stores.get(storeId)) {
+      case (?store) { store };
       case (null) { Runtime.trap("Store not found") };
-      case (?store) {
-        if (store.vendorPrincipal != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-          Runtime.trap("Unauthorized: Only the store owner can toggle this store's status");
-        };
-        let updatedStore = {
-          storeId = store.storeId;
-          vendorPrincipal = store.vendorPrincipal;
-          name = store.name;
-          description = store.description;
-          contactEmail = store.contactEmail;
-          logoUrl = store.logoUrl;
-          isActive = not store.isActive;
-          createdAt = store.createdAt;
-        };
-        stores.add(storeId, updatedStore);
-        {
-          storeId = updatedStore.storeId;
-          name = updatedStore.name;
-          description = updatedStore.description;
-          contactEmail = updatedStore.contactEmail;
-          logoUrl = updatedStore.logoUrl;
-          isActive = updatedStore.isActive;
-          createdAt = updatedStore.createdAt;
-        };
-      };
+    };
+
+    if (store.vendorId != caller) {
+      Runtime.trap("Only the store owner can toggle this store's status");
+    };
+
+    let updatedStore : Store = {
+      id = store.id;
+      vendorId = store.vendorId;
+      name = store.name;
+      description = store.description;
+      contactInfo = store.contactInfo;
+      isActive = not store.isActive;
+      createdAt = store.createdAt;
+    };
+
+    stores.add(storeId, updatedStore);
+    {
+      id = updatedStore.id;
+      vendorId = updatedStore.vendorId;
+      name = updatedStore.name;
+      description = updatedStore.description;
+      contactInfo = updatedStore.contactInfo;
+      isActive = updatedStore.isActive;
+      createdAt = updatedStore.createdAt;
     };
   };
 
-  // deactivateStore: authenticated user + store owner only (or admin)
-  public shared ({ caller }) func deactivateStore(storeId : Text) : async StoreResponse {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can deactivate stores");
-    };
-    switch (stores.get(storeId)) {
-      case (null) { Runtime.trap("Store not found") };
-      case (?store) {
-        if (store.vendorPrincipal != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-          Runtime.trap("Unauthorized: Only the store owner can deactivate this store");
-        };
-        let updatedStore = {
-          storeId = store.storeId;
-          vendorPrincipal = store.vendorPrincipal;
-          name = store.name;
-          description = store.description;
-          contactEmail = store.contactEmail;
-          logoUrl = store.logoUrl;
-          isActive = false;
-          createdAt = store.createdAt;
-        };
-        stores.add(storeId, updatedStore);
-        {
-          storeId = updatedStore.storeId;
-          name = updatedStore.name;
-          description = updatedStore.description;
-          contactEmail = updatedStore.contactEmail;
-          logoUrl = updatedStore.logoUrl;
-          isActive = updatedStore.isActive;
-          createdAt = updatedStore.createdAt;
-        };
-      };
-    };
-  };
-
-  // activateStore: authenticated user + store owner only (or admin)
-  public shared ({ caller }) func activateStore(storeId : Text) : async StoreResponse {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can activate stores");
-    };
-    switch (stores.get(storeId)) {
-      case (null) { Runtime.trap("Store not found") };
-      case (?store) {
-        if (store.vendorPrincipal != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-          Runtime.trap("Unauthorized: Only the store owner can activate this store");
-        };
-        let updatedStore = {
-          storeId = store.storeId;
-          vendorPrincipal = store.vendorPrincipal;
-          name = store.name;
-          description = store.description;
-          contactEmail = store.contactEmail;
-          logoUrl = store.logoUrl;
-          isActive = true;
-          createdAt = store.createdAt;
-        };
-        stores.add(storeId, updatedStore);
-        {
-          storeId = updatedStore.storeId;
-          name = updatedStore.name;
-          description = updatedStore.description;
-          contactEmail = updatedStore.contactEmail;
-          logoUrl = updatedStore.logoUrl;
-          isActive = updatedStore.isActive;
-          createdAt = updatedStore.createdAt;
-        };
-      };
-    };
+  public query func getAllStoreIds() : async [Text] {
+    stores.keys().toArray();
   };
 
   func createTransactionEntry(orderId : Text, buyer : Principal, items : [CartItem], totalNat : Nat, timestamp : Int) {
@@ -558,4 +423,78 @@ actor {
     };
     UserApproval.listApprovals(approvalState);
   };
+
+  // Product Management per Store
+
+  public shared ({ caller }) func addProductToStore(storeId : Text, product : Product) : async () {
+    let store = switch (stores.get(storeId)) {
+      case (?s) { s };
+      case (null) { Runtime.trap("Store not found") };
+    };
+
+    if (not (AccessControl.isAdmin(accessControlState, caller)) and (store.vendorId != caller)) {
+      Runtime.trap("Unauthorized: Only the store owner or an admin can add products");
+    };
+
+    let storeProductsMap = switch (storeProducts.get(storeId)) {
+      case (?p) { p };
+      case (null) {
+        let newStoreMap = Map.empty<Text, Product>();
+        storeProducts.add(storeId, newStoreMap);
+        newStoreMap;
+      };
+    };
+
+    storeProductsMap.add(product.id, product);
+  };
+
+  public shared ({ caller }) func updateStoreProduct(storeId : Text, product : Product) : async () {
+    let store = switch (stores.get(storeId)) {
+      case (?s) { s };
+      case (null) { Runtime.trap("Store not found") };
+    };
+
+    if (not (AccessControl.isAdmin(accessControlState, caller)) and (store.vendorId != caller)) {
+      Runtime.trap("Unauthorized: Only the store owner or an admin can update products");
+    };
+
+    let storeProductsMap = switch (storeProducts.get(storeId)) {
+      case (?p) { p };
+      case (null) {
+        let newStoreMap = Map.empty<Text, Product>();
+        storeProducts.add(storeId, newStoreMap);
+        newStoreMap;
+      };
+    };
+
+    storeProductsMap.add(product.id, product);
+  };
+
+  public shared ({ caller }) func deleteStoreProduct(storeId : Text, productId : Text) : async () {
+    let store = switch (stores.get(storeId)) {
+      case (?s) { s };
+      case (null) { Runtime.trap("Store not found") };
+    };
+
+    if (not (AccessControl.isAdmin(accessControlState, caller)) and (store.vendorId != caller)) {
+      Runtime.trap("Unauthorized: Only the store owner or an admin can delete products");
+    };
+
+    let storeProductsMap = switch (storeProducts.get(storeId)) {
+      case (?p) { p };
+      case (null) { Runtime.trap("Store has no products") };
+    };
+
+    storeProductsMap.remove(productId);
+  };
+
+  public query func listStoreProducts(storeId : Text) : async [Product] {
+    switch (storeProducts.get(storeId)) {
+      case (?productsMap) {
+        productsMap.values().toArray();
+      };
+      case (null) { [] };
+    };
+  };
 };
+

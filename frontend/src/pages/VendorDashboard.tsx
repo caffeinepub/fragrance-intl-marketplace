@@ -7,10 +7,11 @@ import VendorOrderHistory from '../components/vendor/VendorOrderHistory';
 import VendorAuctionsPanel from '../components/vendor/VendorAuctionsPanel';
 import StoreSelector from '../components/vendor/StoreSelector';
 import StoreListManager from '../components/vendor/StoreListManager';
+import StoreProductManager from '../components/vendor/StoreProductManager';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { Store, Package, ArrowRight, Layers } from 'lucide-react';
+import { Store, Package, ArrowRight, Layers, ShoppingBag } from 'lucide-react';
 
 function VendorDashboardContent() {
   const { identity } = useInternetIdentity();
@@ -27,7 +28,7 @@ function VendorDashboardContent() {
 
   useEffect(() => {
     if (!selectedStoreId && stores && stores.length > 0) {
-      setSelectedStoreId(stores[0].storeId);
+      setSelectedStoreId(stores[0].id);
     }
   }, [stores, selectedStoreId]);
 
@@ -87,6 +88,38 @@ function VendorDashboardContent() {
           Manage all your stores under this vendor account. You can have up to 5 stores.
         </p>
         <StoreListManager />
+      </div>
+
+      {/* Store Products */}
+      <div className="bg-card border border-border rounded p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <ShoppingBag className="w-5 h-5 text-gold" />
+          <h2 className="font-serif text-xl text-foreground">Store Products</h2>
+        </div>
+        <p className="font-sans text-sm text-muted-foreground mb-5">
+          Add and manage products for the selected store.
+        </p>
+
+        {storesLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : !selectedStoreId ? (
+          <div className="text-center py-8 border border-dashed border-border rounded-lg">
+            <ShoppingBag className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="font-sans text-sm text-muted-foreground">
+              {stores && stores.length > 0
+                ? 'Select a store above to manage its products.'
+                : 'Create a store first to start adding products.'}
+            </p>
+          </div>
+        ) : (
+          <StoreProductManager
+            storeId={selectedStoreId}
+            vendorId={principalStr}
+          />
+        )}
       </div>
 
       {/* Auctions */}

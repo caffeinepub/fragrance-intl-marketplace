@@ -1,76 +1,25 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T01:35:27.906Z",
-  "summary": "The diff implements store management backend (REQ-1), frontend hooks (REQ-2), StoreListManager integration (REQ-4), and StoreSelector integration (REQ-5). However, REQ-3 (StoreFormModal integration with toast notifications and create/edit mode logic) is not directly evidenced in the diff, and several specific acceptance criteria have gaps.",
+  "generatedAt": "2026-02-26T12:37:02.321Z",
+  "summary": "The diff implements both REQ-1 (backend access control) and REQ-2 (frontend authorization error handling). The backend/main.mo imports AccessControl and MixinAuthorization modules suggesting access control scaffolding is in place. The frontend StoreProductManager.tsx includes a getErrorMessage helper that detects 'UNAUTHORIZED' errors and returns a user-friendly message, and uses toast notifications. useQueries.ts includes an isAuthorizationError helper and authorization error handling for store product mutations. However, the backend diff is truncated and the actual enforcement logic checking caller principal against store owner in createStoreProduct, updateStoreProduct, deleteStoreProduct cannot be confirmed from the visible portion.",
   "missing_requirements": [
     {
-      "id": "REQ-3",
-      "requirement": "Integrate the StoreFormModal component into the vendor UI: connect it to useCreateStore and useUpdateStore hooks so vendors can create and edit stores via the modal form.",
-      "reason": "The diff does not show any changes to StoreFormModal or StoreListManager source files. The frontend-file-summaries.txt does not mention StoreFormModal being wired up. The StoreListManager is rendered in VendorDashboard, but no evidence exists that StoreFormModal is connected to useCreateStore/useUpdateStore with success/error toasts, pre-population of form data for editing, or creation mode.",
-      "evidence": [
-        "frontend/src/pages/VendorDashboard.tsx",
-        "frontend-file-summaries.txt"
-      ]
-    },
-    {
       "id": "REQ-1",
-      "requirement": "toggleStoreActive flips the active boolean on a store record",
-      "reason": "The hooks in useQueries.ts use useDeactivateStore and useActivateStore rather than a single toggleStoreActive method. The backend main.mo is truncated so it is unclear if toggleStoreActive is implemented as a single method; the hook naming diverges from the spec.",
+      "requirement": "Only the store owner (or an admin) can create, update, and delete products within a specific store. Calls from principals who do not own the store must return an authorization error.",
+      "reason": "The backend/main.mo diff is truncated and only shows imports and data structure definitions. The actual enforcement logic checking caller principal against store.vendorId in addProductToStore, updateStoreProduct, deleteStoreProduct is not visible in the diff. It cannot be confirmed that the access control check is actually applied to these mutation functions.",
       "evidence": [
-        "frontend/src/hooks/useQueries.ts",
         "backend/main.mo"
       ]
-    },
-    {
-      "id": "REQ-2",
-      "requirement": "useToggleStoreActive mutation calls the backend and invalidates the stores query on success",
-      "reason": "The file summary for useQueries.ts lists useDeactivateStore and useActivateStore as separate hooks rather than a single useToggleStoreActive hook as specified.",
-      "evidence": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend-file-summaries.txt"
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "requirement": "Product management and other vendor panels receive the selected store ID as context where applicable",
-      "reason": "VendorDashboard tracks selectedStoreId in state and passes it to StoreSelector, but there is no evidence that the selected store ID is passed as a prop to VendorPayoutsPanel, VendorOrderHistory, VendorAuctionsPanel, or any product management panel.",
-      "evidence": [
-        "frontend/src/pages/VendorDashboard.tsx"
-      ]
     }
   ],
-  "hallucinated_features": [
-    {
-      "description": "Separate useDeactivateStore and useActivateStore hooks instead of a single useToggleStoreActive hook",
-      "reason": "The build request specifies a single useToggleStoreActive hook. The diff introduces two separate hooks (useDeactivateStore and useActivateStore) which were not requested.",
-      "evidence": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend-file-summaries.txt"
-      ]
-    },
-    {
-      "description": "useStoreById hook added to useQueries.ts",
-      "reason": "The build request does not mention a useStoreById hook; it only requests useCreateStore, useUpdateStore, useGetStoresByVendor, and useToggleStoreActive. useStoreById is an extra hook not in the spec.",
-      "evidence": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend-file-summaries.txt"
-      ]
-    },
-    {
-      "description": "migration.mo generated even though OldActor and NewActor have identical shapes with an identity run function",
-      "reason": "The constraint states 'Generate migration.mo only if stable backend state shape changes require it.' The migration.mo run function simply returns the old state unchanged, indicating no actual shape change required migration.",
-      "evidence": [
-        "backend/migration.mo"
-      ]
-    }
-  ],
-  "confidence": 0.72,
+  "hallucinated_features": [],
+  "confidence": 0.55,
   "changed_files": [
     "backend/main.mo",
-    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/pages/VendorDashboard.tsx",
+    "frontend/src/components/vendor/StoreProductManager.tsx",
+    "frontend/src/hooks/useQueries.ts",
     "project_state.json"
   ]
 }

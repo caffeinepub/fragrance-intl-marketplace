@@ -1,13 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Break the second pass of vendor store management into smaller incremental steps, implementing backend store CRUD support, frontend React Query hooks, and wiring up store management UI components in the VendorDashboard.
+**Goal:** Add access control so only store owners and admins can manage products in their stores, with graceful error handling on the frontend.
 
 **Planned changes:**
-- Add `createStore`, `updateStore`, `getStoresByVendor`, and `toggleStoreActive` methods to the Motoko backend actor, persisting store records in stable state with a 5-store limit per vendor
-- Add `useCreateStore`, `useUpdateStore`, `useGetStoresByVendor`, and `useToggleStoreActive` React Query hooks in `useQueries.ts` wired to the backend methods
-- Connect `StoreFormModal` to `useCreateStore` and `useUpdateStore` hooks for creating and editing stores, with success/error toasts
-- Integrate `StoreListManager` into `VendorDashboard` with create, edit, and toggle-active controls using the store hooks
-- Integrate `StoreSelector` into `VendorDashboard` to allow vendors to select an active store context, persisting the selected store ID in component state for use by other vendor panels
+- Add backend authorization checks on product create, update, and delete operations, allowing only the store owner or an admin to perform these actions; return an authorization error for all other principals
+- Keep product listing/query operations unrestricted
+- On the frontend, catch authorization errors from product mutation operations and display a user-friendly toast notification instead of crashing or showing a raw error
+- Ensure the StoreProductManager component remains functional after an authorization error
 
-**User-visible outcome:** Vendors can create up to 5 stores, edit store details, toggle stores active/inactive, and select an active store context from their dashboard.
+**User-visible outcome:** Unauthorized users who attempt to create, update, or delete products in a store they don't own will see a clear permission-denied toast message instead of an error crash, while store owners and admins can manage products as before.

@@ -2,10 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-integrate-the-storelistmanager-component-into-the-vendordashboard-page-render-the-list-of-the-vendor-s-stores-with-create-edit-and-toggle-active-controls-fully-functional-using-the-store-hooks",
-      "featureTitle": "Integrate the StoreListManager component into the VendorDashboard page: render the list of the vendor's stores with create, edit, and toggle-active controls fully functional using the store hooks.",
+      "featureId": "feature-on-the-frontend-gracefully-handle-authorization-errors-returned-from-the-backend-for-store-product-operations-display-a-user-friendly-error-message-e-g-toast-notification-when-an-unauthorized-action-is-attempted-rather-than-crashing-or-showing-a-raw-error",
+      "featureTitle": "On the frontend, gracefully handle authorization errors returned from the backend for store product operations. Display a user-friendly error message (e.g., toast notification) when an unauthorized action is attempted, rather than crashing or showing a raw error.",
       "files": [
-        "frontend/src/pages/VendorDashboard.tsx"
+        "frontend/src/components/vendor/StoreProductManager.tsx",
+        "frontend/src/hooks/useQueries.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -20,30 +21,7 @@
         "http-outcalls@3.0.0"
       ],
       "testIds": [
-        "REQ-4"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-integrate-the-storeselector-component-into-the-vendordashboard-page-so-vendors-can-select-their-active-store-context-and-persist-the-selected-store-id-in-component-state-for-use-by-other-vendor-panels",
-      "featureTitle": "Integrate the StoreSelector component into the VendorDashboard page so vendors can select their active store context, and persist the selected store ID in component state for use by other vendor panels.",
-      "files": [
-        "frontend/src/pages/VendorDashboard.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-5"
+        "REQ-2"
       ],
       "confidence": "high"
     }

@@ -13,6 +13,23 @@ import type { Principal } from '@icp-sdk/core/principal';
 export type ApprovalStatus = { 'pending' : null } |
   { 'approved' : null } |
   { 'rejected' : null };
+export interface Product {
+  'id' : string,
+  'status' : ProductStatus,
+  'title' : string,
+  'description' : string,
+  'productType' : ProductType,
+  'stock' : bigint,
+  'vendorId' : string,
+  'category' : string,
+  'image' : [] | [Principal],
+  'price' : bigint,
+}
+export type ProductStatus = { 'active' : null } |
+  { 'inactive' : null };
+export type ProductType = { 'service' : null } |
+  { 'physical' : null } |
+  { 'digital' : null };
 export interface ShoppingItem {
   'productName' : string,
   'currency' : string,
@@ -21,13 +38,13 @@ export interface ShoppingItem {
   'productDescription' : string,
 }
 export interface StoreResponse {
-  'storeId' : string,
+  'id' : string,
+  'contactInfo' : string,
   'name' : string,
-  'createdAt' : bigint,
+  'createdAt' : Time,
   'description' : string,
   'isActive' : boolean,
-  'logoUrl' : string,
-  'contactEmail' : string,
+  'vendorId' : Principal,
 }
 export interface StripeConfiguration {
   'allowedCountries' : Array<string>,
@@ -37,6 +54,7 @@ export type StripeSessionStatus = {
     'completed' : { 'userPrincipal' : [] | [string], 'response' : string }
   } |
   { 'failed' : { 'error' : string } };
+export type Time = bigint;
 export interface TransformationInput {
   'context' : Uint8Array,
   'response' : http_request_result,
@@ -92,18 +110,17 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  'activateStore' : ActorMethod<[string], StoreResponse>,
+  'addProductToStore' : ActorMethod<[string, Product], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createCheckoutSession' : ActorMethod<
     [Array<ShoppingItem>, string, string],
     string
   >,
-  'createStore' : ActorMethod<[string, string, string, string], StoreResponse>,
-  'deactivateStore' : ActorMethod<[string], StoreResponse>,
+  'createStore' : ActorMethod<[string, string, string], StoreResponse>,
+  'deleteStoreProduct' : ActorMethod<[string, string], undefined>,
+  'getAllStoreIds' : ActorMethod<[], Array<string>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
-  'getMyStores' : ActorMethod<[], Array<StoreResponse>>,
-  'getStoreById' : ActorMethod<[string], [] | [StoreResponse]>,
   'getStoresByVendor' : ActorMethod<[Principal], Array<StoreResponse>>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -111,16 +128,15 @@ export interface _SERVICE {
   'isCallerApproved' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
+  'listStoreProducts' : ActorMethod<[string], Array<Product>>,
   'requestApproval' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
   'toggleStoreActive' : ActorMethod<[string], StoreResponse>,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
-  'updateStore' : ActorMethod<
-    [string, string, string, string, string],
-    StoreResponse
-  >,
+  'updateStore' : ActorMethod<[string, string, string, string], StoreResponse>,
+  'updateStoreProduct' : ActorMethod<[string, Product], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

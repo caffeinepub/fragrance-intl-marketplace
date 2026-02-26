@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMyStores, useActivateStore, useDeactivateStore } from '../../hooks/useQueries';
+import { useMyStores, useToggleStoreActive } from '../../hooks/useQueries';
 import StoreFormModal from './StoreFormModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,11 +12,9 @@ const MAX_STORES = 5;
 
 export default function StoreListManager() {
   const { data: stores, isLoading } = useMyStores();
-  const activateStore = useActivateStore();
-  const deactivateStore = useDeactivateStore();
+  const toggleStoreActive = useToggleStoreActive();
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingStore, setEditingStore] = useState<StoreResponse | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -24,25 +22,19 @@ export default function StoreListManager() {
   const atLimit = storeCount >= MAX_STORES;
 
   const openCreate = () => {
-    setModalMode('create');
     setEditingStore(undefined);
     setModalOpen(true);
   };
 
   const openEdit = (store: StoreResponse) => {
-    setModalMode('edit');
     setEditingStore(store);
     setModalOpen(true);
   };
 
   const handleToggleActive = async (store: StoreResponse) => {
-    setTogglingId(store.storeId);
+    setTogglingId(store.id);
     try {
-      if (store.isActive) {
-        await deactivateStore.mutateAsync(store.storeId);
-      } else {
-        await activateStore.mutateAsync(store.storeId);
-      }
+      await toggleStoreActive.mutateAsync(store.id);
     } finally {
       setTogglingId(null);
     }
@@ -76,7 +68,7 @@ export default function StoreListManager() {
                     className="font-sans bg-gold text-background opacity-50 cursor-not-allowed"
                   >
                     <Plus className="w-4 h-4 mr-1.5" />
-                    Create New Store
+                    Add Store
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -91,7 +83,7 @@ export default function StoreListManager() {
               className="font-sans bg-gold text-background hover:bg-gold/90"
             >
               <Plus className="w-4 h-4 mr-1.5" />
-              Create New Store
+              Add Store
             </Button>
           )}
         </div>
@@ -108,31 +100,20 @@ export default function StoreListManager() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {stores.map((store) => (
               <div
-                key={store.storeId}
+                key={store.id}
                 className="bg-background border border-border rounded p-4 flex flex-col gap-3"
               >
                 {/* Store header */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    {store.logoUrl ? (
-                      <img
-                        src={store.logoUrl}
-                        alt={store.name}
-                        className="w-8 h-8 rounded object-cover shrink-0 border border-border"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded bg-gold/10 flex items-center justify-center shrink-0">
-                        <Store className="w-4 h-4 text-gold" />
-                      </div>
-                    )}
+                    <div className="w-8 h-8 rounded bg-gold/10 flex items-center justify-center shrink-0">
+                      <Store className="w-4 h-4 text-gold" />
+                    </div>
                     <div className="min-w-0">
                       <p className="font-serif text-base text-foreground truncate">{store.name}</p>
-                      {store.contactEmail && (
+                      {store.contactInfo && (
                         <p className="font-sans text-xs text-muted-foreground truncate">
-                          {store.contactEmail}
+                          {store.contactInfo}
                         </p>
                       )}
                     </div>
@@ -171,14 +152,14 @@ export default function StoreListManager() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleToggleActive(store)}
-                    disabled={togglingId === store.storeId}
+                    disabled={togglingId === store.id}
                     className={`font-sans text-xs h-7 px-2.5 ${
                       store.isActive
                         ? 'border-amber-500/40 text-amber-600 hover:bg-amber-500/10'
                         : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10'
                     }`}
                   >
-                    {togglingId === store.storeId ? (
+                    {togglingId === store.id ? (
                       <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                     ) : store.isActive ? (
                       <ToggleLeft className="w-3 h-3 mr-1" />
@@ -196,8 +177,7 @@ export default function StoreListManager() {
         <StoreFormModal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
-          mode={modalMode}
-          initialData={editingStore}
+          store={editingStore}
         />
       </div>
     </TooltipProvider>

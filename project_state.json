@@ -7,18 +7,10 @@
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-integrate-the-storelistmanager-component-into-the-vendordashboard-page-render-the-list-of-the-vendor-s-stores-with-create-edit-and-toggle-active-controls-fully-functional-using-the-store-hooks",
-      "title": "Integrate the StoreListManager component into the VendorDashboard page: render the list of the vendor's stores with create, edit, and toggle-active controls fully functional using the store hooks.",
+      "id": "feature-on-the-frontend-gracefully-handle-authorization-errors-returned-from-the-backend-for-store-product-operations-display-a-user-friendly-error-message-e-g-toast-notification-when-an-unauthorized-action-is-attempted-rather-than-crashing-or-showing-a-raw-error",
+      "title": "On the frontend, gracefully handle authorization errors returned from the backend for store product operations. Display a user-friendly error message (e.g., toast notification) when an unauthorized action is attempted, rather than crashing or showing a raw error.",
       "reqIds": [
-        "REQ-4"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-integrate-the-storeselector-component-into-the-vendordashboard-page-so-vendors-can-select-their-active-store-context-and-persist-the-selected-store-id-in-component-state-for-use-by-other-vendor-panels",
-      "title": "Integrate the StoreSelector component into the VendorDashboard page so vendors can select their active store context, and persist the selected store ID in component state for use by other vendor panels.",
-      "reqIds": [
-        "REQ-5"
+        "REQ-2"
       ],
       "version": 1
     }
@@ -26,30 +18,14 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Implement store management backend support: add createStore, updateStore, getStoresByVendor, and toggleStoreActive query/update methods to the main Motoko actor, persisting store records in stable state.",
+      "summary": "Implement backend access control so that only the store owner (or an admin) can create, update, and delete products within a specific store. Calls from principals who do not own the store must return an authorization error.",
       "reqIds": [
         "REQ-1"
       ],
       "status": "pending"
-    },
-    {
-      "id": "AR-2",
-      "summary": "Wire up store management React Query hooks in useQueries.ts: add useCreateStore, useUpdateStore, useGetStoresByVendor, and useToggleStoreActive hooks that call the corresponding backend methods.",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-3",
-      "summary": "Integrate the StoreFormModal component into the vendor UI: connect it to useCreateStore and useUpdateStore hooks so vendors can create and edit stores via the modal form.",
-      "reqIds": [
-        "REQ-3"
-      ],
-      "status": "pending"
     }
   ],
-  "projectName": "Break second pass into smaller incremental build steps",
+  "projectName": "Add access control for store operators",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

@@ -1,115 +1,54 @@
 {
   "kind": "build_request",
-  "title": "Break second pass into smaller incremental build steps",
+  "title": "Add access control for store operators",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Implement store management backend support: add createStore, updateStore, getStoresByVendor, and toggleStoreActive query/update methods to the main Motoko actor, persisting store records in stable state.",
+      "text": "Implement backend access control so that only the store owner (or an admin) can create, update, and delete products within a specific store. Calls from principals who do not own the store must return an authorization error.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-8"
+          "msg-6"
         ],
         "quotes": [
-          "break the second pass into smaller steps to make it easier to get through"
+          "access control for store operators"
         ]
       },
       "acceptanceCriteria": [
-        "createStore creates a new store record associated with the calling vendor principal",
-        "updateStore modifies an existing store's name, description, and active status",
-        "getStoresByVendor returns all stores for a given vendor ID",
-        "toggleStoreActive flips the active boolean on a store record",
-        "A vendor cannot exceed 5 stores (enforced in backend)"
+        "A store owner can create, update, and delete products for their own store.",
+        "A principal who does not own the store receives an authorization error when attempting to create, update, or delete that store's products.",
+        "An admin principal can perform all product management operations regardless of store ownership.",
+        "Existing query operations (listing products) remain accessible without ownership restriction."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Wire up store management React Query hooks in useQueries.ts: add useCreateStore, useUpdateStore, useGetStoresByVendor, and useToggleStoreActive hooks that call the corresponding backend methods.",
+      "text": "On the frontend, gracefully handle authorization errors returned from the backend for store product operations. Display a user-friendly error message (e.g., toast notification) when an unauthorized action is attempted, rather than crashing or showing a raw error.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-8"
+          "msg-6"
         ],
         "quotes": [
-          "break the second pass into smaller steps to make it easier to get through"
+          "access control for store operators"
         ]
       },
       "acceptanceCriteria": [
-        "useGetStoresByVendor fetches stores for the current vendor and caches the result",
-        "useCreateStore mutation calls the backend and invalidates the stores query on success",
-        "useUpdateStore mutation calls the backend and invalidates the stores query on success",
-        "useToggleStoreActive mutation calls the backend and invalidates the stores query on success"
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Integrate the StoreFormModal component into the vendor UI: connect it to useCreateStore and useUpdateStore hooks so vendors can create and edit stores via the modal form.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-8"
-        ],
-        "quotes": [
-          "break the second pass into smaller steps to make it easier to get through"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Opening StoreFormModal with no existing store data submits a create request",
-        "Opening StoreFormModal with existing store data pre-populates the form and submits an update request",
-        "A success toast is shown after successful creation or update",
-        "An error toast is shown if the operation fails"
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Integrate the StoreListManager component into the VendorDashboard page: render the list of the vendor's stores with create, edit, and toggle-active controls fully functional using the store hooks.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-8"
-        ],
-        "quotes": [
-          "break the second pass into smaller steps to make it easier to get through"
-        ]
-      },
-      "acceptanceCriteria": [
-        "VendorDashboard renders StoreListManager showing all stores for the logged-in vendor",
-        "Each store row has an edit button that opens StoreFormModal pre-populated",
-        "Each store row has a toggle button that activates or deactivates the store",
-        "A 'Create Store' button opens StoreFormModal in creation mode",
-        "The list is disabled or shows a message when the vendor already has 5 stores"
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "text": "Integrate the StoreSelector component into the VendorDashboard page so vendors can select their active store context, and persist the selected store ID in component state for use by other vendor panels.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-8"
-        ],
-        "quotes": [
-          "break the second pass into smaller steps to make it easier to get through"
-        ]
-      },
-      "acceptanceCriteria": [
-        "StoreSelector is rendered in VendorDashboard and populates from the vendor's store list",
-        "Selecting a store updates the active store context in the dashboard",
-        "The selected store's name and active/inactive status badge are visible in the selector",
-        "Product management and other vendor panels receive the selected store ID as context where applicable"
+        "When a store product mutation (create/update/delete) returns an authorization error, a toast notification is shown to the user explaining they do not have permission.",
+        "No unhandled exceptions or blank screens appear when an unauthorized operation is attempted.",
+        "The StoreProductManager component remains functional after an authorization error."
       ]
     }
   ],
   "constraints": [
-    "All Motoko logic must remain in the single main actor (backend/main.mo)",
-    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
-    "Generate migration.mo only if stable backend state shape changes require it"
+    "All backend logic must remain in the single main actor (backend/main.mo).",
+    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui."
   ],
   "nonGoals": [
-    "Redesigning existing UI components unrelated to store management",
-    "Adding new product or order features beyond what is needed for store context",
-    "Implementing any payment or auction changes in this pass"
+    "Adding new product fields, variants, bundles, or inventory management.",
+    "Changing the existing store or product data schema.",
+    "Wholesaling or multi-tier pricing features."
   ],
   "imageRequirements": {
     "required": [],

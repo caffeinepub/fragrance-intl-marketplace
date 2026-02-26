@@ -18,47 +18,44 @@ import { Loader2 } from 'lucide-react';
 interface StoreFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'create' | 'edit';
-  initialData?: StoreResponse;
+  store?: StoreResponse;
 }
 
 interface FormState {
   name: string;
   description: string;
-  contactEmail: string;
-  logoUrl: string;
+  contactInfo: string;
 }
 
 const emptyForm: FormState = {
   name: '',
   description: '',
-  contactEmail: '',
-  logoUrl: '',
+  contactInfo: '',
 };
 
-export default function StoreFormModal({ isOpen, onClose, mode, initialData }: StoreFormModalProps) {
+export default function StoreFormModal({ isOpen, onClose, store }: StoreFormModalProps) {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [nameError, setNameError] = useState('');
 
   const createStore = useCreateStore();
   const updateStore = useUpdateStore();
 
+  const isEditMode = !!store;
   const isPending = createStore.isPending || updateStore.isPending;
 
   // Pre-populate form when editing
   useEffect(() => {
-    if (mode === 'edit' && initialData) {
+    if (store) {
       setForm({
-        name: initialData.name,
-        description: initialData.description,
-        contactEmail: initialData.contactEmail,
-        logoUrl: initialData.logoUrl,
+        name: store.name,
+        description: store.description,
+        contactInfo: store.contactInfo,
       });
-    } else if (mode === 'create') {
+    } else {
       setForm(emptyForm);
     }
     setNameError('');
-  }, [mode, initialData, isOpen]);
+  }, [store, isOpen]);
 
   const handleChange = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -75,20 +72,18 @@ export default function StoreFormModal({ isOpen, onClose, mode, initialData }: S
     }
 
     try {
-      if (mode === 'create') {
+      if (isEditMode && store) {
+        await updateStore.mutateAsync({
+          storeId: store.id,
+          name: form.name.trim(),
+          description: form.description.trim(),
+          contactInfo: form.contactInfo.trim(),
+        });
+      } else {
         await createStore.mutateAsync({
           name: form.name.trim(),
           description: form.description.trim(),
-          contactEmail: form.contactEmail.trim(),
-          logoUrl: form.logoUrl.trim(),
-        });
-      } else if (mode === 'edit' && initialData) {
-        await updateStore.mutateAsync({
-          storeId: initialData.storeId,
-          name: form.name.trim(),
-          description: form.description.trim(),
-          contactEmail: form.contactEmail.trim(),
-          logoUrl: form.logoUrl.trim(),
+          contactInfo: form.contactInfo.trim(),
         });
       }
       onClose();
@@ -102,12 +97,12 @@ export default function StoreFormModal({ isOpen, onClose, mode, initialData }: S
       <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl text-foreground">
-            {mode === 'create' ? 'Create New Store' : 'Edit Store'}
+            {isEditMode ? 'Edit Store' : 'Create New Store'}
           </DialogTitle>
           <DialogDescription className="font-sans text-sm text-muted-foreground">
-            {mode === 'create'
-              ? 'Set up a new store under your vendor account.'
-              : 'Update your store details below.'}
+            {isEditMode
+              ? 'Update your store details below.'
+              : 'Set up a new store under your vendor account.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -146,32 +141,16 @@ export default function StoreFormModal({ isOpen, onClose, mode, initialData }: S
             />
           </div>
 
-          {/* Contact Email */}
+          {/* Contact Info */}
           <div className="space-y-1.5">
-            <Label htmlFor="store-email" className="font-sans text-sm text-foreground">
-              Contact Email
+            <Label htmlFor="store-contact" className="font-sans text-sm text-foreground">
+              Contact Info
             </Label>
             <Input
-              id="store-email"
-              type="email"
-              value={form.contactEmail}
-              onChange={(e) => handleChange('contactEmail', e.target.value)}
-              placeholder="contact@yourstore.com"
-              className="font-sans text-sm border-border"
-              disabled={isPending}
-            />
-          </div>
-
-          {/* Logo URL */}
-          <div className="space-y-1.5">
-            <Label htmlFor="store-logo" className="font-sans text-sm text-foreground">
-              Logo URL
-            </Label>
-            <Input
-              id="store-logo"
-              value={form.logoUrl}
-              onChange={(e) => handleChange('logoUrl', e.target.value)}
-              placeholder="https://example.com/logo.png"
+              id="store-contact"
+              value={form.contactInfo}
+              onChange={(e) => handleChange('contactInfo', e.target.value)}
+              placeholder="e.g. contact@yourstore.com or +1 555-0100"
               className="font-sans text-sm border-border"
               disabled={isPending}
             />
@@ -193,7 +172,7 @@ export default function StoreFormModal({ isOpen, onClose, mode, initialData }: S
               className="font-sans bg-gold text-background hover:bg-gold/90"
             >
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {mode === 'create' ? 'Create Store' : 'Save Changes'}
+              {isEditMode ? 'Save Changes' : 'Create Store'}
             </Button>
           </DialogFooter>
         </form>

@@ -1,84 +1,26 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Store Management Frontend Integration",
+  "title": "Add access control for store operators - Frontend",
   "requirements": [
     {
       "id": "REQ-2",
-      "summary": "Wire up store management React Query hooks in useQueries.ts for create, update, get, and toggle operations",
+      "summary": "Handle authorization errors from store product operations with user-friendly toast notifications",
       "acceptanceCriteria": [
-        "useGetStoresByVendor fetches stores for the current vendor and caches the result",
-        "useCreateStore mutation calls the backend and invalidates the stores query on success",
-        "useUpdateStore mutation calls the backend and invalidates the stores query on success",
-        "useToggleStoreActive mutation calls the backend and invalidates the stores query on success"
+        "When a store product mutation (create/update/delete) returns an authorization error, a toast notification is shown to the user explaining they do not have permission.",
+        "No unhandled exceptions or blank screens appear when an unauthorized operation is attempted.",
+        "The StoreProductManager component remains functional after an authorization error."
       ],
       "file_operations": [
         {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Add useGetStoresByVendor query hook that fetches stores for a given vendor principal using actor.getStoresByVendor, with caching enabled. Add useCreateStore mutation hook that calls actor.createStore with store details and invalidates the stores query on success. Add useUpdateStore mutation hook that calls actor.updateStore with storeId and updated fields, invalidating stores query on success. Add useToggleStoreActive mutation hook that calls actor.toggleStoreActive with storeId and invalidates stores query on success. All mutations should include toast notifications for success/error feedback."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "Integrate StoreFormModal component with create and update hooks for vendor store management",
-      "acceptanceCriteria": [
-        "Opening StoreFormModal with no existing store data submits a create request",
-        "Opening StoreFormModal with existing store data pre-populates the form and submits an update request",
-        "A success toast is shown after successful creation or update",
-        "An error toast is shown if the operation fails"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/vendor/StoreFormModal.tsx",
-          "operation": "modify",
-          "description": "Connect the form submission handler to useCreateStore mutation when no existing store is provided, and to useUpdateStore mutation when editing an existing store. Pre-populate all form fields (name, description, contactEmail, logoUrl) from the existing store prop when in edit mode. Add toast notifications on mutation success showing 'Store created successfully' or 'Store updated successfully'. Add toast notifications on mutation error showing the error message. Ensure the modal closes and form resets after successful submission."
-        }
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "summary": "Integrate StoreListManager component into VendorDashboard page with full CRUD functionality",
-      "acceptanceCriteria": [
-        "VendorDashboard renders StoreListManager showing all stores for the logged-in vendor",
-        "Each store row has an edit button that opens StoreFormModal pre-populated",
-        "Each store row has a toggle button that activates or deactivates the store",
-        "A 'Create Store' button opens StoreFormModal in creation mode",
-        "The list is disabled or shows a message when the vendor already has 5 stores"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/vendor/StoreListManager.tsx",
-          "operation": "modify",
-          "description": "Connect the component to useGetStoresByVendor query using the authenticated user's principal to fetch the vendor's stores. Wire the 'Create Store' button to open StoreFormModal in create mode (no store data passed). Wire each store's edit button to open StoreFormModal with that store's data pre-populated. Connect each store's toggle button to the useToggleStoreActive mutation, passing the storeId. Display a disabled state or message when the vendor has reached the 5-store limit, preventing the 'Create Store' button from opening the modal. Show loading skeletons while stores are being fetched. Display an empty state message when the vendor has no stores yet."
+          "description": "Add error handling to useAddStoreProduct, useUpdateStoreProduct, and useDeleteStoreProduct mutations. Wrap mutation functions with try-catch blocks that detect authorization errors (trap messages containing 'Unauthorized' or 'authorization') and display user-friendly toast notifications using the toast utility. Ensure mutations do not throw unhandled exceptions and gracefully return error states to calling components."
         },
         {
-          "path": "frontend/src/pages/VendorDashboard.tsx",
+          "path": "frontend/src/components/vendor/StoreProductManager.tsx",
           "operation": "modify",
-          "description": "Add StoreListManager component to the vendor dashboard layout, positioned near the top of the page after the store status cards and before the product management section. Ensure the component receives the necessary authentication context from the useInternetIdentity hook. Position it as a prominent section with appropriate heading (e.g., 'Your Stores') so vendors can easily manage their store portfolio."
-        }
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "summary": "Integrate StoreSelector component for active store context selection in VendorDashboard",
-      "acceptanceCriteria": [
-        "StoreSelector is rendered in VendorDashboard and populates from the vendor's store list",
-        "Selecting a store updates the active store context in the dashboard",
-        "The selected store's name and active/inactive status badge are visible in the selector",
-        "Product management and other vendor panels receive the selected store ID as context where applicable"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/vendor/StoreSelector.tsx",
-          "operation": "modify",
-          "description": "Connect the StoreSelector to useGetStoresByVendor query to fetch and populate the dropdown with the vendor's stores. Display each store's name and an active/inactive status badge in the dropdown options. Implement an onChange handler that updates the selected store ID in the parent component's state. Ensure the currently selected store is highlighted in the dropdown. Show a loading state while stores are being fetched. Display a message if the vendor has no stores to select."
-        },
-        {
-          "path": "frontend/src/pages/VendorDashboard.tsx",
-          "operation": "modify",
-          "description": "Add local state to track the currently selected store ID (selectedStoreId). Render the StoreSelector component near the top of the dashboard, passing it the onStoreChange callback to update selectedStoreId state. Pass the selectedStoreId as a prop to VendorAuctionsPanel, ProductListManager, and any other panels that need store context for filtering or creating store-specific content. Initialize selectedStoreId to the first active store if available, or null if the vendor has no stores. Ensure the selected store context persists across dashboard interactions."
+          "description": "Update error handling in the component to display toast notifications when mutations fail due to authorization errors. Check mutation error states and show appropriate messages like 'You do not have permission to manage products for this store' when authorization fails. Ensure the component UI remains stable and does not crash after an authorization error occurs."
         }
       ]
     }

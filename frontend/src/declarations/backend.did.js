@@ -19,14 +19,26 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'success' : IDL.Opt(IDL.Bool),
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
-export const StoreResponse = IDL.Record({
-  'storeId' : IDL.Text,
-  'name' : IDL.Text,
-  'createdAt' : IDL.Int,
+export const ProductStatus = IDL.Variant({
+  'active' : IDL.Null,
+  'inactive' : IDL.Null,
+});
+export const ProductType = IDL.Variant({
+  'service' : IDL.Null,
+  'physical' : IDL.Null,
+  'digital' : IDL.Null,
+});
+export const Product = IDL.Record({
+  'id' : IDL.Text,
+  'status' : ProductStatus,
+  'title' : IDL.Text,
   'description' : IDL.Text,
-  'isActive' : IDL.Bool,
-  'logoUrl' : IDL.Text,
-  'contactEmail' : IDL.Text,
+  'productType' : ProductType,
+  'stock' : IDL.Nat,
+  'vendorId' : IDL.Text,
+  'category' : IDL.Text,
+  'image' : IDL.Opt(IDL.Principal),
+  'price' : IDL.Nat,
 });
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
@@ -39,6 +51,16 @@ export const ShoppingItem = IDL.Record({
   'quantity' : IDL.Nat,
   'priceInCents' : IDL.Nat,
   'productDescription' : IDL.Text,
+});
+export const Time = IDL.Int;
+export const StoreResponse = IDL.Record({
+  'id' : IDL.Text,
+  'contactInfo' : IDL.Text,
+  'name' : IDL.Text,
+  'createdAt' : Time,
+  'description' : IDL.Text,
+  'isActive' : IDL.Bool,
+  'vendorId' : IDL.Principal,
 });
 export const UserProfile = IDL.Record({
   'name' : IDL.Text,
@@ -112,23 +134,18 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-  'activateStore' : IDL.Func([IDL.Text], [StoreResponse], []),
+  'addProductToStore' : IDL.Func([IDL.Text, Product], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'createCheckoutSession' : IDL.Func(
       [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
       [IDL.Text],
       [],
     ),
-  'createStore' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
-      [StoreResponse],
-      [],
-    ),
-  'deactivateStore' : IDL.Func([IDL.Text], [StoreResponse], []),
+  'createStore' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [StoreResponse], []),
+  'deleteStoreProduct' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'getAllStoreIds' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-  'getMyStores' : IDL.Func([], [IDL.Vec(StoreResponse)], ['query']),
-  'getStoreById' : IDL.Func([IDL.Text], [IDL.Opt(StoreResponse)], ['query']),
   'getStoresByVendor' : IDL.Func(
       [IDL.Principal],
       [IDL.Vec(StoreResponse)],
@@ -144,6 +161,7 @@ export const idlService = IDL.Service({
   'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
+  'listStoreProducts' : IDL.Func([IDL.Text], [IDL.Vec(Product)], ['query']),
   'requestApproval' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
@@ -155,10 +173,11 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'updateStore' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [StoreResponse],
       [],
     ),
+  'updateStoreProduct' : IDL.Func([IDL.Text, Product], [], []),
 });
 
 export const idlInitArgs = [];
@@ -175,14 +194,26 @@ export const idlFactory = ({ IDL }) => {
     'success' : IDL.Opt(IDL.Bool),
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
-  const StoreResponse = IDL.Record({
-    'storeId' : IDL.Text,
-    'name' : IDL.Text,
-    'createdAt' : IDL.Int,
+  const ProductStatus = IDL.Variant({
+    'active' : IDL.Null,
+    'inactive' : IDL.Null,
+  });
+  const ProductType = IDL.Variant({
+    'service' : IDL.Null,
+    'physical' : IDL.Null,
+    'digital' : IDL.Null,
+  });
+  const Product = IDL.Record({
+    'id' : IDL.Text,
+    'status' : ProductStatus,
+    'title' : IDL.Text,
     'description' : IDL.Text,
-    'isActive' : IDL.Bool,
-    'logoUrl' : IDL.Text,
-    'contactEmail' : IDL.Text,
+    'productType' : ProductType,
+    'stock' : IDL.Nat,
+    'vendorId' : IDL.Text,
+    'category' : IDL.Text,
+    'image' : IDL.Opt(IDL.Principal),
+    'price' : IDL.Nat,
   });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
@@ -195,6 +226,16 @@ export const idlFactory = ({ IDL }) => {
     'quantity' : IDL.Nat,
     'priceInCents' : IDL.Nat,
     'productDescription' : IDL.Text,
+  });
+  const Time = IDL.Int;
+  const StoreResponse = IDL.Record({
+    'id' : IDL.Text,
+    'contactInfo' : IDL.Text,
+    'name' : IDL.Text,
+    'createdAt' : Time,
+    'description' : IDL.Text,
+    'isActive' : IDL.Bool,
+    'vendorId' : IDL.Principal,
   });
   const UserProfile = IDL.Record({
     'name' : IDL.Text,
@@ -265,7 +306,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-    'activateStore' : IDL.Func([IDL.Text], [StoreResponse], []),
+    'addProductToStore' : IDL.Func([IDL.Text, Product], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createCheckoutSession' : IDL.Func(
         [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
@@ -273,15 +314,14 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'createStore' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Text, IDL.Text, IDL.Text],
         [StoreResponse],
         [],
       ),
-    'deactivateStore' : IDL.Func([IDL.Text], [StoreResponse], []),
+    'deleteStoreProduct' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'getAllStoreIds' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-    'getMyStores' : IDL.Func([], [IDL.Vec(StoreResponse)], ['query']),
-    'getStoreById' : IDL.Func([IDL.Text], [IDL.Opt(StoreResponse)], ['query']),
     'getStoresByVendor' : IDL.Func(
         [IDL.Principal],
         [IDL.Vec(StoreResponse)],
@@ -297,6 +337,7 @@ export const idlFactory = ({ IDL }) => {
     'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
+    'listStoreProducts' : IDL.Func([IDL.Text], [IDL.Vec(Product)], ['query']),
     'requestApproval' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
@@ -308,10 +349,11 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'updateStore' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [StoreResponse],
         [],
       ),
+    'updateStoreProduct' : IDL.Func([IDL.Text, Product], [], []),
   });
 };
 
