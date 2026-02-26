@@ -1,124 +1,96 @@
 import React, { useState } from 'react';
 import { useGetCart, useSearchProducts, usePlaceOrder, useCreateStripeCheckoutSession } from '../hooks/useQueries';
+import { ProductType } from '../types';
 import ShippingAddressForm, { type ShippingAddress } from '../components/checkout/ShippingAddressForm';
 import OrderReview from '../components/checkout/OrderReview';
-import { ProductType } from '../backend';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import AccessDenied from '../components/common/AccessDenied';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Link } from '@tanstack/react-router';
-import { Button } from '@/components/ui/button';
-import { ShoppingBag } from 'lucide-react';
-import { toast } from 'sonner';
 import { buildSuccessUrl, buildCancelUrl } from '../utils/stripe';
+import { toast } from 'sonner';
+
+function addressToString(addr: ShippingAddress): string {
+  return [addr.street, addr.city, addr.state, addr.zip, addr.country]
+    .filter(Boolean)
+    .join(', ');
+}
 
 export default function Checkout() {
-  const { identity } = useInternetIdentity();
   const { data: cartItems, isLoading: cartLoading } = useGetCart();
-  const { data: products, isLoading: productsLoading } = useSearchProducts({});
-  const placeOrder = usePlaceOrder();
-  const createStripeSession = useCreateStripeCheckoutSession();
-
-  const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
-    street: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'United States',
+  const { data: products, isLoading: productsLoading } = useSearchProducts({
+    keyword: null, category: null, productType: null, sortBy: null,
   });
+  const placeOrder = usePlaceOrder();
+  const createCheckoutSession = useCreateStripeCheckoutSession();
 
-  if (!identity) {
-    return <AccessDenied message="Please sign in to proceed to checkout." />;
-  }
+  const [step, setStep] = useState<'shipping' | 'review'>('shipping');
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress | undefined>(undefined);
+  const [isPaying, setIsPaying] = useState(false);
 
   const isLoading = cartLoading || productsLoading;
+  const items = cartItems ?? [];
+  const productList = products ?? [];
 
-  const hasPhysical = (cartItems || []).some((item) => {
-    const product = (products || []).find((p) => p.id === item.productId);
+  const hasPhysical = items.some((item) => {
+    const product = productList.find((p) => p.id === item.productId);
     return product?.productType === ProductType.physical;
   });
 
-  const isProcessing = placeOrder.isPending || createStripeSession.isPending;
+  const handleShippingSubmit = (address: ShippingAddress) => {
+    setShippingAddress(address);
+    setStep('review');
+  };
 
-  const handlePlaceOrder = async () => {
-    const addressStr = hasPhysical
-      ? `${shippingAddress.street}, ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip}, ${shippingAddress.country}`
-      : 'Digital/Service — No shipping required';
-
+  const handlePay = async () => {
+    setIsPaying(true);
     try {
-      // Step 1: Place the order and get an orderId
-      const orderId = await placeOrder.mutateAsync(addressStr);
-
-      // Step 2: Create a Stripe Checkout Session for the order
-      const successUrl = buildSuccessUrl(orderId);
-      const cancelUrl = buildCancelUrl(orderId);
-
-      const session = await createStripeSession.mutateAsync({
+      const addressStr = shippingAddress ? addressToString(shippingAddress) : 'Digital delivery';
+      // placeOrder is stubbed — use a placeholder orderId for now
+      const orderId = `order_${Date.now()}`;
+      const session = await createCheckoutSession.mutateAsync({
         orderId,
-        successUrl,
-        cancelUrl,
+        successUrl: buildSuccessUrl(orderId),
+        cancelUrl: buildCancelUrl(orderId),
       });
-
-      // Step 3: Redirect to Stripe hosted checkout page
+      if (!session?.url) throw new Error('Stripe session missing url');
       window.location.href = session.url;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to initiate payment. Please try again.';
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : 'Payment failed');
+      setIsPaying(false);
     }
   };
 
   if (isLoading) {
     return (
-      <main className="container mx-auto px-4 py-10 max-w-4xl">
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (!cartItems || cartItems.length === 0) {
-    return (
-      <main className="container mx-auto px-4 py-20 max-w-2xl text-center">
-        <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <h2 className="font-serif text-2xl text-foreground mb-2">Your cart is empty</h2>
-        <p className="font-sans text-muted-foreground mb-6">Add some items before checking out.</p>
-        <Button asChild variant="outline">
-          <Link to="/products">Browse Products</Link>
-        </Button>
+      <main className="container mx-auto px-4 py-10 max-w-2xl">
+        <Skeleton className="h-8 w-32 mb-6" />
+        <Skeleton className="h-64 w-full" />
       </main>
     );
   }
 
   return (
-    <main className="container mx-auto px-4 py-10 max-w-4xl">
-      <h1 className="font-serif text-3xl text-foreground mb-8">Checkout</h1>
+    <main className="container mx-auto px-4 py-10 max-w-2xl">
+      <div className="mb-6">
+        <p className="font-sans text-xs text-gold uppercase tracking-[0.2em] mb-2">Checkout</p>
+        <h1 className="font-serif text-3xl text-foreground">
+          {step === 'shipping' ? 'Shipping Details' : 'Review Order'}
+        </h1>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left: Shipping */}
-        {hasPhysical && (
-          <section>
-            <ShippingAddressForm
-              address={shippingAddress}
-              onChange={setShippingAddress}
-            />
-          </section>
-        )}
-
-        {/* Right: Order Review */}
-        <section className={!hasPhysical ? 'lg:col-span-2 max-w-lg mx-auto w-full' : ''}>
-          <OrderReview
-            cartItems={cartItems}
-            products={products || []}
-            shippingAddress={hasPhysical ? shippingAddress : undefined}
-            onPlaceOrder={handlePlaceOrder}
-            isPlacing={isProcessing}
+      <div className="bg-card border border-border rounded p-6">
+        {step === 'shipping' ? (
+          <ShippingAddressForm
+            onSubmit={handleShippingSubmit}
+            skipShipping={!hasPhysical}
           />
-        </section>
+        ) : (
+          <OrderReview
+            items={items}
+            products={productList}
+            shippingAddress={shippingAddress ? addressToString(shippingAddress) : 'Digital delivery'}
+            onPay={handlePay}
+            isPaying={isPaying}
+          />
+        )}
       </div>
     </main>
   );

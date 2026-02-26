@@ -1,47 +1,27 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { PayoutStatus } from '../../backend';
+import { PayoutStatus } from '../../types';
 
 interface PayoutStatusBadgeProps {
-  status: PayoutStatus;
-  className?: string;
+  status: PayoutStatus | string;
 }
 
-const statusConfig: Record<PayoutStatus, { label: string; className: string }> = {
-  [PayoutStatus.pending]: {
-    label: 'Pending',
-    className:
-      'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
-  },
-  [PayoutStatus.processing]: {
-    label: 'Processing',
-    className:
-      'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
-  },
-  [PayoutStatus.completed]: {
-    label: 'Completed',
-    className:
-      'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
-  },
-  [PayoutStatus.failed]: {
-    label: 'Failed',
-    className:
-      'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
-  },
-};
-
-export default function PayoutStatusBadge({ status, className = '' }: PayoutStatusBadgeProps) {
-  const config = statusConfig[status] ?? {
-    label: String(status),
-    className: 'bg-muted text-muted-foreground border-border',
+export function PayoutStatusBadge({ status }: PayoutStatusBadgeProps) {
+  const variants: Record<string, string> = {
+    [PayoutStatus.pending]: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+    [PayoutStatus.processing]: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+    [PayoutStatus.completed]: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    [PayoutStatus.failed]: 'bg-red-500/15 text-red-600 border-red-500/30',
   };
 
   return (
     <Badge
       variant="outline"
-      className={`font-sans text-xs font-medium px-2.5 py-0.5 ${config.className} ${className}`}
+      className={`text-xs capitalize ${variants[status] ?? 'bg-muted text-muted-foreground'}`}
     >
-      {config.label}
+      {status}
     </Badge>
   );
 }
+
+export default PayoutStatusBadge;

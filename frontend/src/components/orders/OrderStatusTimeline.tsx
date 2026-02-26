@@ -1,95 +1,73 @@
 import React from 'react';
-import { Check, Clock, Package, Truck, CheckCircle2, XCircle } from 'lucide-react';
-import { OrderStatus } from '../../backend';
+import { OrderStatus } from '../../types';
+import { Check, X } from 'lucide-react';
 
 interface OrderStatusTimelineProps {
-  currentStatus: OrderStatus;
+  status: OrderStatus | string;
 }
 
-const STAGES: { status: OrderStatus; label: string; icon: React.ElementType }[] = [
-  { status: OrderStatus.pending, label: 'Pending', icon: Clock },
-  { status: OrderStatus.processing, label: 'Processing', icon: Package },
-  { status: OrderStatus.shipped, label: 'Shipped', icon: Truck },
-  { status: OrderStatus.delivered, label: 'Delivered', icon: CheckCircle2 },
+const STAGES: OrderStatus[] = [
+  OrderStatus.pending,
+  OrderStatus.processing,
+  OrderStatus.shipped,
+  OrderStatus.delivered,
 ];
 
-const STATUS_ORDER: Record<OrderStatus, number> = {
-  [OrderStatus.pending]: 0,
-  [OrderStatus.processing]: 1,
-  [OrderStatus.shipped]: 2,
-  [OrderStatus.delivered]: 3,
-  [OrderStatus.canceled]: -1,
-};
-
-export default function OrderStatusTimeline({ currentStatus }: OrderStatusTimelineProps) {
-  const isCanceled = currentStatus === OrderStatus.canceled;
-  const currentIndex = STATUS_ORDER[currentStatus] ?? 0;
+export default function OrderStatusTimeline({ status }: OrderStatusTimelineProps) {
+  const isCanceled = status === OrderStatus.canceled;
+  const currentIndex = STAGES.indexOf(status as OrderStatus);
 
   return (
-    <div className="w-full">
-      {isCanceled ? (
-        <div className="flex items-center gap-3 p-4 bg-muted/50 rounded border border-border">
-          <XCircle className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-          <div>
-            <p className="font-sans text-sm font-medium text-muted-foreground">Order Canceled</p>
-            <p className="font-sans text-xs text-muted-foreground/70">This order has been canceled.</p>
-          </div>
-        </div>
-      ) : (
-        <div className="relative">
-          {/* Progress line */}
-          <div className="absolute top-5 left-5 right-5 h-0.5 bg-border" aria-hidden="true">
-            <div
-              className="h-full bg-gold transition-all duration-500"
-              style={{
-                width: currentIndex === 0 ? '0%' : `${(currentIndex / (STAGES.length - 1)) * 100}%`,
-              }}
-            />
-          </div>
+    <div className="flex items-center gap-0">
+      {STAGES.map((stage, i) => {
+        const isCompleted = !isCanceled && currentIndex > i;
+        const isCurrent = !isCanceled && currentIndex === i;
+        const isFuture = isCanceled || currentIndex < i;
 
-          {/* Stages */}
-          <div className="relative flex justify-between">
-            {STAGES.map((stage, index) => {
-              const isCompleted = index < currentIndex;
-              const isCurrent = index === currentIndex;
-              const isFuture = index > currentIndex;
-              const Icon = stage.icon;
-
-              return (
-                <div key={stage.status} className="flex flex-col items-center gap-2 flex-1">
-                  {/* Circle */}
-                  <div
-                    className={`
-                      w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10
-                      ${isCompleted
-                        ? 'bg-gold border-gold text-primary-foreground'
-                        : isCurrent
-                        ? 'bg-card border-gold text-gold shadow-sm shadow-gold/20'
-                        : 'bg-card border-border text-muted-foreground'
-                      }
-                    `}
-                  >
-                    {isCompleted ? (
-                      <Check className="w-4 h-4" />
-                    ) : (
-                      <Icon className={`w-4 h-4 ${isFuture ? 'opacity-40' : ''}`} />
-                    )}
-                  </div>
-
-                  {/* Label */}
-                  <span
-                    className={`
-                      font-sans text-xs text-center leading-tight
-                      ${isCompleted || isCurrent ? 'text-foreground font-medium' : 'text-muted-foreground'}
-                      ${isFuture ? 'opacity-50' : ''}
-                    `}
-                  >
-                    {stage.label}
-                  </span>
-                </div>
-              );
-            })}
+        return (
+          <React.Fragment key={stage}>
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors ${
+                  isCompleted
+                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    : isCurrent
+                    ? 'bg-gold border-gold text-background'
+                    : 'bg-muted border-border text-muted-foreground'
+                }`}
+              >
+                {isCompleted ? (
+                  <Check className="w-3.5 h-3.5" />
+                ) : isCanceled && i === 0 ? (
+                  <X className="w-3.5 h-3.5" />
+                ) : (
+                  <span className="text-[10px] font-bold">{i + 1}</span>
+                )}
+              </div>
+              <span
+                className={`text-[10px] font-sans capitalize whitespace-nowrap ${
+                  isCurrent ? 'text-gold font-medium' : isFuture ? 'text-muted-foreground' : 'text-foreground'
+                }`}
+              >
+                {stage}
+              </span>
+            </div>
+            {i < STAGES.length - 1 && (
+              <div
+                className={`flex-1 h-0.5 mb-4 mx-1 ${
+                  isCompleted ? 'bg-emerald-500' : 'bg-border'
+                }`}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+      {isCanceled && (
+        <div className="ml-3 flex items-center gap-1.5">
+          <div className="w-7 h-7 rounded-full flex items-center justify-center border-2 border-red-500 bg-red-500/10">
+            <X className="w-3.5 h-3.5 text-red-500" />
           </div>
+          <span className="text-[10px] font-sans text-red-500 font-medium">Canceled</span>
         </div>
       )}
     </div>

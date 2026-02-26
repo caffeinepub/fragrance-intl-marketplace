@@ -1,9 +1,6 @@
-import React from 'react';
-import { useListAllAuctions, useCancelAuction, useFinalizeAuction, type Auction } from '../../hooks/useQueries';
-import AuctionStatusBadge from '../auctions/AuctionStatusBadge';
-import AuctionCountdown from '../auctions/AuctionCountdown';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import React, { useState } from 'react';
+import { useGetAllAuctions, useCancelAuction, useFinalizeAuction } from '../../hooks/useQueries';
+import type { Auction } from '../../types';
 import {
   Table,
   TableBody,
@@ -12,169 +9,135 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { XCircle, CheckCircle2, Gavel } from 'lucide-react';
-import { toast } from 'sonner';
-import { Link } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Gavel, XCircle, CheckCircle, ArrowUpDown } from 'lucide-react';
+
+type SortField = 'status' | 'endTime' | 'createdAt';
+
+function AuctionStatusBadge({ status }: { status: string }) {
+  const variants: Record<string, string> = {
+    active: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    ended: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+    canceled: 'bg-red-500/15 text-red-600 border-red-500/30',
+  };
+  return (
+    <Badge variant="outline" className={`text-xs ${variants[status] ?? 'bg-muted text-muted-foreground'}`}>
+      {status}
+    </Badge>
+  );
+}
 
 export default function AuctionManagementPanel() {
-  const { data: auctions, isLoading, refetch } = useListAllAuctions();
+  const { data: auctions, isLoading } = useGetAllAuctions();
   const cancelAuction = useCancelAuction();
   const finalizeAuction = useFinalizeAuction();
+  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortAsc, setSortAsc] = useState(false);
 
-  const handleCancel = async (auctionId: string) => {
-    try {
-      await cancelAuction.mutateAsync(auctionId);
-      toast.success('Auction cancelled.');
-      refetch();
-    } catch {
-      toast.error('Failed to cancel auction.');
-    }
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortAsc((v) => !v);
+    else { setSortField(field); setSortAsc(false); }
   };
 
-  const handleFinalize = async (auctionId: string) => {
-    try {
-      await finalizeAuction.mutateAsync(auctionId);
-      toast.success('Auction finalized.');
-      refetch();
-    } catch {
-      toast.error('Failed to finalize auction.');
-    }
-  };
+  const sorted = [...(auctions ?? [])].sort((a, b) => {
+    let cmp = 0;
+    if (sortField === 'status') cmp = a.status.localeCompare(b.status);
+    else if (sortField === 'endTime') cmp = a.endTime - b.endTime;
+    else cmp = a.createdAt - b.createdAt;
+    return sortAsc ? cmp : -cmp;
+  });
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  if (!auctions || auctions.length === 0) {
-    return (
-      <div className="flex flex-col items-center py-10 text-center">
-        <Gavel className="w-10 h-10 text-muted-foreground opacity-30 mb-3" />
-        <p className="font-sans text-sm text-muted-foreground">No auctions found.</p>
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="font-sans text-xs">Product</TableHead>
-            <TableHead className="font-sans text-xs">Vendor</TableHead>
-            <TableHead className="font-sans text-xs">Current Bid</TableHead>
-            <TableHead className="font-sans text-xs">End Time</TableHead>
-            <TableHead className="font-sans text-xs">Status</TableHead>
-            <TableHead className="font-sans text-xs">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {auctions.map((auction: Auction) => {
-            const isActive = auction.status === 'active' && Date.now() < auction.endTime;
-            const isEndedUnfinalized = auction.status === 'active' && Date.now() >= auction.endTime;
-            return (
-              <TableRow key={auction.id}>
-                <TableCell>
-                  <Link
-                    to="/auctions/$auctionId"
-                    params={{ auctionId: auction.id }}
-                    className="font-sans text-sm text-foreground hover:text-gold transition-colors"
-                  >
-                    {auction.productName}
-                  </Link>
-                  <p className="font-mono text-xs text-muted-foreground">{auction.id.slice(0, 16)}…</p>
-                </TableCell>
-                <TableCell>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {auction.vendorId.slice(0, 12)}…
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className="font-serif text-sm font-semibold text-gold">
-                    ${auction.currentBid.toFixed(2)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {isActive ? (
-                    <AuctionCountdown endTime={auction.endTime} compact />
-                  ) : (
-                    <span className="font-sans text-xs text-muted-foreground">
-                      {new Date(auction.endTime).toLocaleDateString()}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <AuctionStatusBadge status={isEndedUnfinalized ? 'ended' : auction.status} />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {isActive && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Gavel className="w-5 h-5 text-gold" />
+        <h3 className="font-serif text-lg text-foreground">All Auctions</h3>
+        <Badge variant="secondary" className="ml-auto">{sorted.length}</Badge>
+      </div>
+
+      {sorted.length === 0 ? (
+        <p className="text-center py-8 text-muted-foreground font-sans text-sm">No auctions found.</p>
+      ) : (
+        <div className="overflow-x-auto rounded border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-sans text-xs">Title</TableHead>
+                <TableHead className="font-sans text-xs">Vendor</TableHead>
+                <TableHead
+                  className="font-sans text-xs cursor-pointer select-none"
+                  onClick={() => toggleSort('status')}
+                >
+                  <span className="flex items-center gap-1">Status <ArrowUpDown className="w-3 h-3" /></span>
+                </TableHead>
+                <TableHead className="font-sans text-xs">Current Bid</TableHead>
+                <TableHead
+                  className="font-sans text-xs cursor-pointer select-none"
+                  onClick={() => toggleSort('endTime')}
+                >
+                  <span className="flex items-center gap-1">End Time <ArrowUpDown className="w-3 h-3" /></span>
+                </TableHead>
+                <TableHead className="font-sans text-xs">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((auction) => (
+                <TableRow key={auction.auctionId}>
+                  <TableCell className="font-sans text-sm">{auction.title}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {auction.vendorId.slice(0, 8)}…
+                  </TableCell>
+                  <TableCell><AuctionStatusBadge status={auction.status} /></TableCell>
+                  <TableCell className="font-sans text-sm">
+                    {auction.currentBid != null ? `$${(auction.currentBid / 100).toFixed(2)}` : '—'}
+                  </TableCell>
+                  <TableCell className="font-sans text-xs text-muted-foreground">
+                    {new Date(auction.endTime).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {auction.status === 'active' && (
+                        <>
                           <Button
-                            variant="outline"
                             size="sm"
-                            className="border-destructive/30 text-destructive hover:bg-destructive/5 h-7 text-xs"
+                            variant="outline"
+                            className="h-7 px-2 text-xs border-red-500/30 text-red-600 hover:bg-red-500/10"
+                            onClick={() => cancelAuction.mutate(auction.auctionId)}
                             disabled={cancelAuction.isPending}
                           >
                             <XCircle className="w-3 h-3 mr-1" />
                             Cancel
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Cancel Auction?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Cancel the auction for "{auction.productName}"?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>No</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleCancel(auction.id)}
-                              className="bg-destructive hover:bg-destructive/90"
-                            >
-                              Cancel Auction
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                    {isEndedUnfinalized && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-emerald-500/30 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 h-7 text-xs"
-                        onClick={() => handleFinalize(auction.id)}
-                        disabled={finalizeAuction.isPending}
-                      >
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Finalize
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+                            onClick={() => finalizeAuction.mutate(auction.auctionId)}
+                            disabled={finalizeAuction.isPending}
+                          >
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Finalize
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

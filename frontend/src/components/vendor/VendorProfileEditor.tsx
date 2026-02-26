@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { ExternalBlob } from '../../backend';
+import type { VendorProfile } from '../../types';
+import { useUpdateVendorProfile } from '../../hooks/useQueries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
-import { useUpdateVendorProfile } from '../../hooks/useQueries';
-import { ExternalBlob, type VendorProfile } from '../../backend';
-import { Loader2, Upload, Save } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface VendorProfileEditorProps {
@@ -14,115 +14,91 @@ interface VendorProfileEditorProps {
 }
 
 export default function VendorProfileEditor({ profile }: VendorProfileEditorProps) {
-  const [name, setName] = useState(profile.name);
-  const [description, setDescription] = useState(profile.description);
-  const [contact, setContact] = useState(profile.contact);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const updateProfile = useUpdateVendorProfile();
 
-  const updateVendorProfile = useUpdateVendorProfile();
+  const [form, setForm] = useState({
+    name: profile.name,
+    description: profile.description,
+    contact: profile.contact,
+  });
 
   useEffect(() => {
-    setName(profile.name);
-    setDescription(profile.description);
-    setContact(profile.contact);
+    setForm({
+      name: profile.name,
+      description: profile.description,
+      contact: profile.contact,
+    });
   }, [profile]);
+
+  const handleChange = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim()) {
+      toast.error('Store name is required');
+      return;
+    }
     try {
-      let logoBlob: ExternalBlob | null = null;
-      if (logoFile) {
-        const bytes = new Uint8Array(await logoFile.arrayBuffer());
-        logoBlob = ExternalBlob.fromBytes(bytes).withUploadProgress((pct) => setUploadProgress(pct));
-      }
-
-      await updateVendorProfile.mutateAsync({
+      await updateProfile.mutateAsync({
         id: profile.id,
-        name: name.trim(),
-        description: description.trim(),
-        logo: logoBlob,
-        contact: contact.trim(),
+        name: form.name.trim(),
+        description: form.description.trim(),
+        logo: null,
+        contact: form.contact.trim(),
       });
-      toast.success('Store profile updated successfully');
+      toast.success('Profile updated successfully!');
     } catch (err: unknown) {
-      const error = err as Error;
-      toast.error(error?.message || 'Update failed');
+      toast.error(err instanceof Error ? err.message : 'Failed to update profile');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="font-sans text-sm">Store ID</Label>
-          <Input value={profile.id} disabled className="font-mono text-sm bg-muted" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="edit-name" className="font-sans text-sm">
-            Store Name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="edit-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="edit-description" className="font-sans text-sm">Description</Label>
-        <Textarea
-          id="edit-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="edit-contact" className="font-sans text-sm">Contact Info</Label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-1.5">
+        <Label className="font-sans text-sm">
+          Store Name <span className="text-destructive">*</span>
+        </Label>
         <Input
-          id="edit-contact"
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
+          value={form.name}
+          onChange={(e) => handleChange('name', e.target.value)}
+          placeholder="Your store name"
+          className="font-sans text-sm border-border"
+          disabled={updateProfile.isPending}
         />
       </div>
 
-      <div className="space-y-2">
-        <Label className="font-sans text-sm">Update Logo</Label>
-        <div className="flex items-center gap-3">
-          <label
-            htmlFor="edit-logo"
-            className="flex items-center gap-2 px-4 py-2 border border-dashed border-gold/40 rounded cursor-pointer hover:bg-gold/5 transition-colors text-sm text-muted-foreground"
-          >
-            <Upload className="w-4 h-4" />
-            {logoFile ? logoFile.name : 'Choose new image'}
-          </label>
-          <input
-            id="edit-logo"
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-          />
-        </div>
-        {updateVendorProfile.isPending && logoFile && uploadProgress > 0 && (
-          <Progress value={uploadProgress} className="h-1.5" />
-        )}
+      <div className="space-y-1.5">
+        <Label className="font-sans text-sm">Description</Label>
+        <Textarea
+          value={form.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          placeholder="Describe your store…"
+          rows={3}
+          className="font-sans text-sm border-border resize-none"
+          disabled={updateProfile.isPending}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="font-sans text-sm">Contact</Label>
+        <Input
+          value={form.contact}
+          onChange={(e) => handleChange('contact', e.target.value)}
+          placeholder="Email or phone"
+          className="font-sans text-sm border-border"
+          disabled={updateProfile.isPending}
+        />
       </div>
 
       <Button
         type="submit"
-        disabled={!name.trim() || updateVendorProfile.isPending}
-        className="bg-primary text-primary-foreground hover:bg-primary/90"
+        disabled={updateProfile.isPending}
+        className="font-sans bg-gold text-background hover:bg-gold/90"
       >
-        {updateVendorProfile.isPending ? (
-          <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
-        ) : (
-          <><Save className="w-4 h-4 mr-2" />Save Changes</>
-        )}
+        {updateProfile.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        Save Changes
       </Button>
     </form>
   );

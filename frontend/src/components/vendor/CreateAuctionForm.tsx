@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useCreateAuction, useSearchProducts } from '../../hooks/useQueries';
+import { useCreateAuction } from '../../hooks/useQueries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Gavel } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CreateAuctionFormProps {
@@ -14,130 +14,148 @@ interface CreateAuctionFormProps {
 
 export default function CreateAuctionForm({ vendorId, onSuccess }: CreateAuctionFormProps) {
   const createAuction = useCreateAuction();
-  const { data: products } = useSearchProducts({ keyword: undefined, category: undefined, productType: undefined, sortBy: undefined });
+  const [form, setForm] = useState({
+    productId: '',
+    title: '',
+    description: '',
+    startingPrice: '',
+    reservePrice: '',
+    endTime: '',
+  });
 
-  const vendorProducts = (products ?? []).filter((p) => p.vendorId === vendorId);
-
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [startingPrice, setStartingPrice] = useState('');
-  const [durationHours, setDurationHours] = useState('24');
-  const [error, setError] = useState('');
+  const handleChange = (field: string, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (!selectedProductId) {
-      setError('Please select a product.');
+    if (!form.title.trim() || !form.startingPrice || !form.endTime) {
+      toast.error('Please fill in all required fields');
       return;
     }
-    const price = parseFloat(startingPrice);
+
+    const price = parseFloat(form.startingPrice);
+    const endDate = new Date(form.endTime).getTime();
+
     if (isNaN(price) || price <= 0) {
-      setError('Please enter a valid starting price.');
+      toast.error('Please enter a valid starting price');
       return;
     }
-    const hours = parseFloat(durationHours);
-    if (isNaN(hours) || hours <= 0) {
-      setError('Please enter a valid duration.');
-      return;
-    }
-
-    const product = vendorProducts.find((p) => p.id === selectedProductId);
-    if (!product) {
-      setError('Selected product not found.');
+    if (isNaN(endDate) || endDate <= Date.now()) {
+      toast.error('End time must be in the future');
       return;
     }
 
     try {
       await createAuction.mutateAsync({
         vendorId,
-        productId: selectedProductId,
-        productName: product.title,
-        startingPrice: price,
-        durationHours: hours,
+        productId: form.productId.trim(),
+        title: form.title.trim(),
+        description: form.description.trim(),
+        startingPrice: BigInt(Math.round(price * 100)),
+        reservePrice: form.reservePrice
+          ? BigInt(Math.round(parseFloat(form.reservePrice) * 100))
+          : null,
+        endTime: BigInt(endDate),
       });
       toast.success('Auction created successfully!');
+      setForm({ productId: '', title: '', description: '', startingPrice: '', reservePrice: '', endTime: '' });
       onSuccess?.();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create auction.';
-      setError(msg);
+      toast.error(err instanceof Error ? err.message : 'Failed to create auction');
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1.5">
-        <Label className="font-sans text-sm">Product</Label>
-        <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a product…" />
-          </SelectTrigger>
-          <SelectContent>
-            {vendorProducts.length === 0 ? (
-              <SelectItem value="__none__" disabled>No products available</SelectItem>
-            ) : (
-              vendorProducts.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.title} — ${Number(p.price).toFixed(2)}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="font-sans text-sm">
+            Title <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            value={form.title}
+            onChange={(e) => handleChange('title', e.target.value)}
+            placeholder="Auction title"
+            className="font-sans text-sm border-border"
+            disabled={createAuction.isPending}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="font-sans text-sm">Product ID</Label>
+          <Input
+            value={form.productId}
+            onChange={(e) => handleChange('productId', e.target.value)}
+            placeholder="Optional product ID"
+            className="font-sans text-sm border-border"
+            disabled={createAuction.isPending}
+          />
+        </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="starting-price" className="font-sans text-sm">Starting Price ($)</Label>
-        <Input
-          id="starting-price"
-          type="number"
-          step="0.01"
-          min="0.01"
-          value={startingPrice}
-          onChange={(e) => setStartingPrice(e.target.value)}
-          placeholder="e.g. 50.00"
-          className="font-mono"
+        <Label className="font-sans text-sm">Description</Label>
+        <Textarea
+          value={form.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          placeholder="Describe the auction item…"
+          rows={3}
+          className="font-sans text-sm border-border resize-none"
+          disabled={createAuction.isPending}
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="duration" className="font-sans text-sm">Duration (hours)</Label>
-        <Select value={durationHours} onValueChange={setDurationHours}>
-          <SelectTrigger id="duration">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">1 hour</SelectItem>
-            <SelectItem value="6">6 hours</SelectItem>
-            <SelectItem value="12">12 hours</SelectItem>
-            <SelectItem value="24">24 hours</SelectItem>
-            <SelectItem value="48">48 hours</SelectItem>
-            <SelectItem value="72">72 hours</SelectItem>
-            <SelectItem value="168">7 days</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <p className="font-sans text-xs">{error}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="space-y-1.5">
+          <Label className="font-sans text-sm">
+            Starting Price ($) <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={form.startingPrice}
+            onChange={(e) => handleChange('startingPrice', e.target.value)}
+            placeholder="0.00"
+            className="font-sans text-sm border-border"
+            disabled={createAuction.isPending}
+          />
         </div>
-      )}
+        <div className="space-y-1.5">
+          <Label className="font-sans text-sm">Reserve Price ($)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.reservePrice}
+            onChange={(e) => handleChange('reservePrice', e.target.value)}
+            placeholder="Optional"
+            className="font-sans text-sm border-border"
+            disabled={createAuction.isPending}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="font-sans text-sm">
+            End Time <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            type="datetime-local"
+            value={form.endTime}
+            onChange={(e) => handleChange('endTime', e.target.value)}
+            className="font-sans text-sm border-border"
+            disabled={createAuction.isPending}
+          />
+        </div>
+      </div>
 
       <Button
         type="submit"
         disabled={createAuction.isPending}
-        className="w-full bg-gold hover:bg-gold/90 text-background font-sans font-medium"
+        className="font-sans bg-gold text-background hover:bg-gold/90"
       >
-        {createAuction.isPending ? (
-          <span className="flex items-center gap-2">
-            <span className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-            Creating…
-          </span>
-        ) : (
-          'Create Auction'
-        )}
+        {createAuction.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        <Gavel className="w-4 h-4 mr-2" />
+        Create Auction
       </Button>
     </form>
   );

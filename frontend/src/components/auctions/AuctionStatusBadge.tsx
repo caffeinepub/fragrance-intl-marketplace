@@ -1,32 +1,24 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import type { AuctionStatus } from '../../hooks/useQueries';
+import type { AuctionStatus } from '../../types';
 
 interface AuctionStatusBadgeProps {
-  status: AuctionStatus;
+  status: AuctionStatus | string;
 }
 
 export default function AuctionStatusBadge({ status }: AuctionStatusBadgeProps) {
-  const config: Record<AuctionStatus, { label: string; className: string }> = {
-    active: {
-      label: 'Active',
-      className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
-    },
-    ended: {
-      label: 'Ended',
-      className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800',
-    },
-    cancelled: {
-      label: 'Cancelled',
-      className: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400 border-gray-200 dark:border-gray-700',
-    },
+  const variants: Record<string, string> = {
+    active: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    ended: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+    canceled: 'bg-red-500/15 text-red-600 border-red-500/30',
   };
 
-  const { label, className } = config[status] ?? config.ended;
-
   return (
-    <Badge variant="outline" className={`font-sans text-xs font-medium ${className}`}>
-      {label}
+    <Badge
+      variant="outline"
+      className={`text-xs capitalize ${variants[status] ?? 'bg-muted text-muted-foreground'}`}
+    >
+      {status}
     </Badge>
   );
 }

@@ -7,66 +7,10 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
-export class ExternalBlob {
-    getBytes(): Promise<Uint8Array<ArrayBuffer>>;
-    getDirectURL(): string;
-    static fromURL(url: string): ExternalBlob;
-    static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
-    withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
-}
-export interface Product {
-    id: string;
-    status: ProductStatus;
-    title: string;
-    description: string;
-    productType: ProductType;
-    stock: bigint;
-    vendorId: string;
-    category: string;
-    image?: Principal;
-    price: bigint;
-}
-export interface CartItem {
-    productId: string;
-    quantity: bigint;
-}
 export interface TransformationOutput {
     status: bigint;
     body: Uint8Array;
     headers: Array<http_header>;
-}
-export interface Payout {
-    status: PayoutStatus;
-    netAmount: bigint;
-    createdAt: bigint;
-    grossAmount: bigint;
-    payoutId: string;
-    orderId: string;
-    updatedAt: bigint;
-    vendorId: string;
-    commissionAmount: bigint;
-}
-export interface SearchFilter {
-    sortBy?: Variant_quantityDesc_priceDesc_priceAsc;
-    productType?: ProductType;
-    category?: string;
-    keyword?: string;
-}
-export interface Order {
-    id: string;
-    status: OrderStatus;
-    total: bigint;
-    paymentStatus: PaymentStatus;
-    paymentSessionId?: string;
-    paymentHistory: Array<PaymentStatus>;
-    customer: Principal;
-    createdAt: bigint;
-    statusHistory: Array<OrderStatus>;
-    updatedAt: bigint;
-    timestamp: bigint;
-    shippingAddress: string;
-    items: Array<CartItem>;
-    paymentUrl?: string;
 }
 export interface http_header {
     value: string;
@@ -88,16 +32,6 @@ export interface ShoppingItem {
     priceInCents: bigint;
     productDescription: string;
 }
-export interface TransactionEntry {
-    netPayout: bigint;
-    commissionFee: bigint;
-    orderId: string;
-    totalAmount: bigint;
-    vendor: Principal;
-    timestamp: bigint;
-    buyer: Principal;
-    items: Array<CartItem>;
-}
 export interface TransformationInput {
     context: Uint8Array;
     response: http_request_result;
@@ -118,14 +52,14 @@ export interface StripeConfiguration {
     allowedCountries: Array<string>;
     secretKey: string;
 }
-export interface VendorProfile {
-    id: string;
-    contact: string;
-    logo?: Principal;
+export interface StoreResponse {
+    storeId: string;
     name: string;
-    createdBy: Principal;
+    createdAt: bigint;
     description: string;
-    approved: boolean;
+    isActive: boolean;
+    logoUrl: string;
+    contactEmail: string;
 }
 export interface UserProfile {
     name: string;
@@ -137,85 +71,33 @@ export enum ApprovalStatus {
     approved = "approved",
     rejected = "rejected"
 }
-export enum OrderStatus {
-    shipped = "shipped",
-    canceled = "canceled",
-    pending = "pending",
-    delivered = "delivered",
-    processing = "processing"
-}
-export enum PaymentStatus {
-    pending = "pending",
-    initiated = "initiated",
-    completed = "completed",
-    awaiting_payment = "awaiting_payment",
-    failed = "failed"
-}
-export enum PayoutStatus {
-    pending = "pending",
-    completed = "completed",
-    processing = "processing",
-    failed = "failed"
-}
-export enum ProductStatus {
-    active = "active",
-    inactive = "inactive"
-}
-export enum ProductType {
-    service = "service",
-    physical = "physical",
-    digital = "digital"
-}
 export enum UserRole {
     admin = "admin",
     user = "user",
     guest = "guest"
 }
-export enum Variant_quantityDesc_priceDesc_priceAsc {
-    quantityDesc = "quantityDesc",
-    priceDesc = "priceDesc",
-    priceAsc = "priceAsc"
-}
 export interface backendInterface {
-    addToCart(productId: string, quantity: bigint): Promise<void>;
-    approveVendorProfile(id: string): Promise<void>;
+    activateStore(storeId: string): Promise<StoreResponse>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
-    createProduct(id: string, vendorId: string, title: string, description: string, price: bigint, category: string, productType: ProductType, stock: bigint, image: ExternalBlob | null): Promise<void>;
-    createVendorProfile(id: string, name: string, description: string, logo: ExternalBlob | null, contact: string): Promise<void>;
-    deleteProduct(id: string): Promise<void>;
-    getAllOrders(): Promise<Array<Order>>;
-    getAllPayouts(): Promise<Array<Payout>>;
+    createStore(name: string, description: string, contactEmail: string, logoUrl: string): Promise<StoreResponse>;
+    deactivateStore(storeId: string): Promise<StoreResponse>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
-    getCart(): Promise<Array<CartItem>>;
-    getCommissionRate(): Promise<bigint>;
-    getMyOrders(): Promise<Array<Order>>;
-    getOrder(orderId: string): Promise<Order>;
-    getPayout(payoutId: string): Promise<Payout | null>;
-    getPayoutsForVendor(vendorId: string): Promise<Array<Payout>>;
+    getMyStores(): Promise<Array<StoreResponse>>;
+    getStoreById(storeId: string): Promise<StoreResponse | null>;
+    getStoresByVendor(vendor: Principal): Promise<Array<StoreResponse>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
-    getTransaction(orderId: string): Promise<TransactionEntry | null>;
-    getTransactionsByBuyer(buyer: Principal): Promise<Array<TransactionEntry>>;
-    getTransactionsByVendor(vendor: Principal): Promise<Array<TransactionEntry>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
-    getVendorProfile(id: string): Promise<VendorProfile>;
-    initiatePayout(orderId: string): Promise<string>;
     isCallerAdmin(): Promise<boolean>;
     isCallerApproved(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
     listApprovals(): Promise<Array<UserApprovalInfo>>;
-    placeOrder(shippingAddress: string): Promise<string>;
-    removeFromCart(productId: string): Promise<void>;
     requestApproval(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    searchProducts(filter: SearchFilter): Promise<Array<Product>>;
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
-    setCommissionRate(rate: bigint): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    toggleStoreActive(storeId: string): Promise<StoreResponse>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
-    updateOrderStatus(orderId: string, newStatus: OrderStatus): Promise<void>;
-    updatePayoutStatus(payoutId: string, status: PayoutStatus): Promise<void>;
-    updateProduct(id: string, title: string, description: string, price: bigint, category: string, productType: ProductType, stock: bigint, image: ExternalBlob | null): Promise<void>;
-    updateVendorProfile(id: string, name: string, description: string, logo: ExternalBlob | null, contact: string): Promise<void>;
+    updateStore(storeId: string, name: string, description: string, contactEmail: string, logoUrl: string): Promise<StoreResponse>;
 }

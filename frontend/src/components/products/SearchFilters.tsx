@@ -1,4 +1,6 @@
 import React from 'react';
+import type { SearchFilter } from '../../types';
+import { ProductType, Variant_quantityDesc_priceDesc_priceAsc } from '../../types';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -8,106 +10,100 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ProductType, Variant_quantityDesc_priceDesc_priceAsc, type SearchFilter } from '../../backend';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
-
-const CATEGORIES = [
-  'Eau de Parfum', 'Eau de Toilette', 'Cologne', 'Perfume Oil',
-  'Body Mist', 'Candles & Home', 'Accessories', 'Gift Sets', 'Other'
-];
+import { Search, X } from 'lucide-react';
 
 interface SearchFiltersProps {
   filter: SearchFilter;
-  onChange: (filter: SearchFilter) => void;
+  onFilterChange: (filter: SearchFilter) => void;
 }
 
-export default function SearchFilters({ filter, onChange }: SearchFiltersProps) {
-  const hasActiveFilters = filter.keyword || filter.category || filter.productType || filter.sortBy;
+const CATEGORIES = [
+  'Perfume', 'Cologne', 'Eau de Toilette', 'Eau de Parfum',
+  'Body Spray', 'Fragrance Oil', 'Candle', 'Diffuser', 'Other',
+];
 
-  const clearFilters = () => {
-    onChange({ keyword: undefined, category: undefined, productType: undefined, sortBy: undefined });
+export default function SearchFilters({ filter, onFilterChange }: SearchFiltersProps) {
+  const handleReset = () => {
+    onFilterChange({ keyword: null, category: null, productType: null, sortBy: null });
   };
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <SlidersHorizontal className="w-4 h-4 text-gold flex-shrink-0" />
-        <span className="font-sans text-sm font-medium text-foreground">Filter & Sort</span>
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="ml-auto h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <X className="w-3 h-3 mr-1" />
-            Clear
-          </Button>
-        )}
-      </div>
+  const hasFilters = filter.keyword || filter.category || filter.productType || filter.sortBy;
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+  return (
+    <div className="flex flex-wrap gap-3 items-center">
+      <div className="relative flex-1 min-w-[180px]">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
         <Input
-          value={filter.keyword || ''}
-          onChange={(e) => onChange({ ...filter, keyword: e.target.value || undefined })}
-          placeholder="Search fragrances..."
-          className="pl-9 border-border focus:border-gold"
+          value={filter.keyword ?? ''}
+          onChange={(e) => onFilterChange({ ...filter, keyword: e.target.value || null })}
+          placeholder="Search fragrances…"
+          className="pl-8 h-9 font-sans text-sm border-border"
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Select
-          value={filter.category || 'all'}
-          onValueChange={(v) => onChange({ ...filter, category: v === 'all' ? undefined : v })}
-        >
-          <SelectTrigger className="text-sm">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {CATEGORIES.map((cat) => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <Select
+        value={filter.category ?? 'all'}
+        onValueChange={(v) => onFilterChange({ ...filter, category: v === 'all' ? null : v })}
+      >
+        <SelectTrigger className="w-40 h-9 font-sans text-sm border-border">
+          <SelectValue placeholder="Category" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Categories</SelectItem>
+          {CATEGORIES.map((c) => (
+            <SelectItem key={c} value={c}>{c}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-        <Select
-          value={filter.productType || 'all'}
-          onValueChange={(v) =>
-            onChange({ ...filter, productType: v === 'all' ? undefined : (v as ProductType) })
-          }
-        >
-          <SelectTrigger className="text-sm">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value={ProductType.physical}>Physical</SelectItem>
-            <SelectItem value={ProductType.digital}>Digital</SelectItem>
-            <SelectItem value={ProductType.service}>Service</SelectItem>
-          </SelectContent>
-        </Select>
+      <Select
+        value={filter.productType ?? 'all'}
+        onValueChange={(v) =>
+          onFilterChange({ ...filter, productType: v === 'all' ? null : (v as ProductType) })
+        }
+      >
+        <SelectTrigger className="w-36 h-9 font-sans text-sm border-border">
+          <SelectValue placeholder="Type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Types</SelectItem>
+          <SelectItem value={ProductType.physical}>Physical</SelectItem>
+          <SelectItem value={ProductType.digital}>Digital</SelectItem>
+          <SelectItem value={ProductType.service}>Service</SelectItem>
+        </SelectContent>
+      </Select>
 
-        <Select
-          value={filter.sortBy || 'none'}
-          onValueChange={(v) =>
-            onChange({
-              ...filter,
-              sortBy: v === 'none' ? undefined : (v as Variant_quantityDesc_priceDesc_priceAsc),
-            })
-          }
+      <Select
+        value={filter.sortBy ?? 'none'}
+        onValueChange={(v) =>
+          onFilterChange({
+            ...filter,
+            sortBy: v === 'none' ? null : (v as 'priceAsc' | 'priceDesc' | 'quantityDesc'),
+          })
+        }
+      >
+        <SelectTrigger className="w-40 h-9 font-sans text-sm border-border">
+          <SelectValue placeholder="Sort by" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Default Sort</SelectItem>
+          <SelectItem value={Variant_quantityDesc_priceDesc_priceAsc.priceAsc}>Price: Low to High</SelectItem>
+          <SelectItem value={Variant_quantityDesc_priceDesc_priceAsc.priceDesc}>Price: High to Low</SelectItem>
+          <SelectItem value={Variant_quantityDesc_priceDesc_priceAsc.quantityDesc}>Most Available</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {hasFilters && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleReset}
+          className="h-9 font-sans text-xs text-muted-foreground hover:text-foreground"
         >
-          <SelectTrigger className="text-sm">
-            <SelectValue placeholder="Sort by Price" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Default Order</SelectItem>
-            <SelectItem value={Variant_quantityDesc_priceDesc_priceAsc.priceAsc}>Price: Low to High</SelectItem>
-            <SelectItem value={Variant_quantityDesc_priceDesc_priceAsc.priceDesc}>Price: High to Low</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          <X className="w-3.5 h-3.5 mr-1" />
+          Clear
+        </Button>
+      )}
     </div>
   );
 }

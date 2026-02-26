@@ -1,156 +1,141 @@
 import React, { useState } from 'react';
-import { useListAuctionsByVendor, useCancelAuction, type Auction } from '../../hooks/useQueries';
-import AuctionStatusBadge from '../auctions/AuctionStatusBadge';
-import AuctionCountdown from '../auctions/AuctionCountdown';
+import { useGetVendorAuctions, useCancelAuction } from '../../hooks/useQueries';
+import type { Auction } from '../../types';
 import CreateAuctionForm from './CreateAuctionForm';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Gavel, Plus, Trophy, XCircle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Gavel, ChevronDown, XCircle, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link } from '@tanstack/react-router';
 
 interface VendorAuctionsPanelProps {
   vendorId: string;
 }
 
-export default function VendorAuctionsPanel({ vendorId }: VendorAuctionsPanelProps) {
-  const { data: auctions, isLoading, refetch } = useListAuctionsByVendor(vendorId);
-  const cancelAuction = useCancelAuction();
-  const [createOpen, setCreateOpen] = useState(false);
+function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
-  const handleCancel = async (auctionId: string) => {
+function useCountdown(endTime: number) {
+  const [timeLeft, setTimeLeft] = React.useState('');
+  React.useEffect(() => {
+    const update = () => {
+      const diff = endTime - Date.now();
+      if (diff <= 0) { setTimeLeft('Ended'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${h}h ${m}m ${s}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [endTime]);
+  return timeLeft;
+}
+
+function AuctionRow({ auction, onCancel }: { auction: Auction; onCancel: (id: string) => void }) {
+  const countdown = useCountdown(auction.endTime);
+  const cancelAuction = useCancelAuction();
+  const [canceling, setCanceling] = React.useState(false);
+
+  const statusColors: Record<string, string> = {
+    active: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    ended: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+    canceled: 'bg-red-500/15 text-red-600 border-red-500/30',
+  };
+
+  const handleCancel = async () => {
+    setCanceling(true);
     try {
-      await cancelAuction.mutateAsync(auctionId);
-      toast.success('Auction cancelled.');
-      refetch();
-    } catch {
-      toast.error('Failed to cancel auction.');
+      await cancelAuction.mutateAsync(auction.auctionId);
+      toast.success('Auction canceled');
+      onCancel(auction.auctionId);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel auction');
+    } finally {
+      setCanceling(false);
     }
   };
+
+  return (
+    <div className="flex items-center gap-3 bg-background border border-border rounded p-3">
+      <div className="flex-1 min-w-0">
+        <p className="font-sans text-sm text-foreground truncate">{auction.title}</p>
+        <p className="font-sans text-xs text-muted-foreground">
+          {auction.status === 'active' ? countdown : 'Auction ended'} ·{' '}
+          {auction.bids.length} bid{auction.bids.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {auction.currentBid != null && (
+          <span className="font-sans text-sm text-gold font-medium">
+            {formatPrice(auction.currentBid)}
+          </span>
+        )}
+        <Badge variant="outline" className={`text-xs ${statusColors[auction.status] ?? ''}`}>
+          {auction.status}
+        </Badge>
+        {auction.status === 'active' && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs border-red-500/30 text-red-600 hover:bg-red-500/10"
+            onClick={handleCancel}
+            disabled={canceling}
+          >
+            {canceling ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3 mr-1" />}
+            Cancel
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function VendorAuctionsPanel({ vendorId }: VendorAuctionsPanelProps) {
+  const { data: auctions, isLoading } = useGetVendorAuctions(vendorId);
+  const [showForm, setShowForm] = useState(false);
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full" />
-        ))}
+        {[1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded" />)}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="font-sans text-sm text-muted-foreground">
-          {auctions?.length ?? 0} auction{(auctions?.length ?? 0) !== 1 ? 's' : ''}
-        </p>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-gold hover:bg-gold/90 text-background font-sans">
-              <Plus className="w-4 h-4 mr-1" />
-              Create Auction
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="font-serif text-xl">Create New Auction</DialogTitle>
-            </DialogHeader>
-            <CreateAuctionForm
-              vendorId={vendorId}
-              onSuccess={() => {
-                setCreateOpen(false);
-                refetch();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+      <Collapsible open={showForm} onOpenChange={setShowForm}>
+        <CollapsibleTrigger asChild>
+          <Button
+            size="sm"
+            className="font-sans bg-gold text-background hover:bg-gold/90"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            {showForm ? 'Hide Form' : 'Create Auction'}
+            <ChevronDown className={`w-3.5 h-3.5 ml-1.5 transition-transform ${showForm ? 'rotate-180' : ''}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-4">
+          <div className="bg-background border border-border rounded p-4">
+            <CreateAuctionForm vendorId={vendorId} onSuccess={() => setShowForm(false)} />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {(!auctions || auctions.length === 0) ? (
-        <div className="flex flex-col items-center py-10 text-center">
-          <Gavel className="w-10 h-10 text-muted-foreground opacity-30 mb-3" />
-          <p className="font-sans text-sm text-muted-foreground">No auctions yet. Create your first auction!</p>
+        <div className="text-center py-8 border border-dashed border-border rounded">
+          <Gavel className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-30" />
+          <p className="font-sans text-sm text-muted-foreground">No auctions yet.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {auctions.map((auction: Auction) => {
-            const isActive = auction.status === 'active' && Date.now() < auction.endTime;
-            return (
-              <div key={auction.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-background border border-border rounded">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Link
-                      to="/auctions/$auctionId"
-                      params={{ auctionId: auction.id }}
-                      className="font-sans text-sm font-medium text-foreground hover:text-gold transition-colors truncate"
-                    >
-                      {auction.productName}
-                    </Link>
-                    <AuctionStatusBadge status={isActive ? 'active' : auction.status} />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    <span>Current: <span className="text-gold font-semibold">${auction.currentBid.toFixed(2)}</span></span>
-                    <span>{auction.bidHistory.length} bid{auction.bidHistory.length !== 1 ? 's' : ''}</span>
-                    {isActive ? (
-                      <AuctionCountdown endTime={auction.endTime} compact />
-                    ) : (
-                      <span>Ended {new Date(auction.endTime).toLocaleDateString()}</span>
-                    )}
-                  </div>
-                  {!isActive && auction.highestBidderId && (
-                    <div className="flex items-center gap-1 mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-                      <Trophy className="w-3 h-3" />
-                      <span>Winner: <span className="font-mono">{auction.highestBidderId.slice(0, 12)}…</span></span>
-                    </div>
-                  )}
-                </div>
-                {isActive && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-destructive/30 text-destructive hover:bg-destructive/5 shrink-0"
-                        disabled={cancelAuction.isPending}
-                      >
-                        <XCircle className="w-3.5 h-3.5 mr-1" />
-                        Cancel
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Cancel Auction?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently cancel the auction for "{auction.productName}". This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Keep Auction</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleCancel(auction.id)}
-                          className="bg-destructive hover:bg-destructive/90"
-                        >
-                          Cancel Auction
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </div>
-            );
-          })}
+        <div className="space-y-2">
+          {auctions.map((auction) => (
+            <AuctionRow key={auction.auctionId} auction={auction} onCancel={() => {}} />
+          ))}
         </div>
       )}
     </div>

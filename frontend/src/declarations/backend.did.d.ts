@@ -13,82 +13,21 @@ import type { Principal } from '@icp-sdk/core/principal';
 export type ApprovalStatus = { 'pending' : null } |
   { 'approved' : null } |
   { 'rejected' : null };
-export interface CartItem { 'productId' : string, 'quantity' : bigint }
-export type ExternalBlob = Uint8Array;
-export interface Order {
-  'id' : string,
-  'status' : OrderStatus,
-  'total' : bigint,
-  'paymentStatus' : PaymentStatus,
-  'paymentSessionId' : [] | [string],
-  'paymentHistory' : Array<PaymentStatus>,
-  'customer' : Principal,
-  'createdAt' : bigint,
-  'statusHistory' : Array<OrderStatus>,
-  'updatedAt' : bigint,
-  'timestamp' : bigint,
-  'shippingAddress' : string,
-  'items' : Array<CartItem>,
-  'paymentUrl' : [] | [string],
-}
-export type OrderStatus = { 'shipped' : null } |
-  { 'canceled' : null } |
-  { 'pending' : null } |
-  { 'delivered' : null } |
-  { 'processing' : null };
-export type PaymentStatus = { 'pending' : null } |
-  { 'initiated' : null } |
-  { 'completed' : null } |
-  { 'awaiting_payment' : null } |
-  { 'failed' : null };
-export interface Payout {
-  'status' : PayoutStatus,
-  'netAmount' : bigint,
-  'createdAt' : bigint,
-  'grossAmount' : bigint,
-  'payoutId' : string,
-  'orderId' : string,
-  'updatedAt' : bigint,
-  'vendorId' : string,
-  'commissionAmount' : bigint,
-}
-export type PayoutStatus = { 'pending' : null } |
-  { 'completed' : null } |
-  { 'processing' : null } |
-  { 'failed' : null };
-export interface Product {
-  'id' : string,
-  'status' : ProductStatus,
-  'title' : string,
-  'description' : string,
-  'productType' : ProductType,
-  'stock' : bigint,
-  'vendorId' : string,
-  'category' : string,
-  'image' : [] | [Principal],
-  'price' : bigint,
-}
-export type ProductStatus = { 'active' : null } |
-  { 'inactive' : null };
-export type ProductType = { 'service' : null } |
-  { 'physical' : null } |
-  { 'digital' : null };
-export interface SearchFilter {
-  'sortBy' : [] | [
-    { 'quantityDesc' : null } |
-      { 'priceDesc' : null } |
-      { 'priceAsc' : null }
-  ],
-  'productType' : [] | [ProductType],
-  'category' : [] | [string],
-  'keyword' : [] | [string],
-}
 export interface ShoppingItem {
   'productName' : string,
   'currency' : string,
   'quantity' : bigint,
   'priceInCents' : bigint,
   'productDescription' : string,
+}
+export interface StoreResponse {
+  'storeId' : string,
+  'name' : string,
+  'createdAt' : bigint,
+  'description' : string,
+  'isActive' : boolean,
+  'logoUrl' : string,
+  'contactEmail' : string,
 }
 export interface StripeConfiguration {
   'allowedCountries' : Array<string>,
@@ -98,16 +37,6 @@ export type StripeSessionStatus = {
     'completed' : { 'userPrincipal' : [] | [string], 'response' : string }
   } |
   { 'failed' : { 'error' : string } };
-export interface TransactionEntry {
-  'netPayout' : bigint,
-  'commissionFee' : bigint,
-  'orderId' : string,
-  'totalAmount' : bigint,
-  'vendor' : Principal,
-  'timestamp' : bigint,
-  'buyer' : Principal,
-  'items' : Array<CartItem>,
-}
 export interface TransformationInput {
   'context' : Uint8Array,
   'response' : http_request_result,
@@ -129,15 +58,6 @@ export interface UserProfile {
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
-export interface VendorProfile {
-  'id' : string,
-  'contact' : string,
-  'logo' : [] | [Principal],
-  'name' : string,
-  'createdBy' : Principal,
-  'description' : string,
-  'approved' : boolean,
-}
 export interface _CaffeineStorageCreateCertificateResult {
   'method' : string,
   'blob_hash' : string,
@@ -172,80 +92,34 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  'addToCart' : ActorMethod<[string, bigint], undefined>,
-  'approveVendorProfile' : ActorMethod<[string], undefined>,
+  'activateStore' : ActorMethod<[string], StoreResponse>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createCheckoutSession' : ActorMethod<
     [Array<ShoppingItem>, string, string],
     string
   >,
-  'createProduct' : ActorMethod<
-    [
-      string,
-      string,
-      string,
-      string,
-      bigint,
-      string,
-      ProductType,
-      bigint,
-      [] | [ExternalBlob],
-    ],
-    undefined
-  >,
-  'createVendorProfile' : ActorMethod<
-    [string, string, string, [] | [ExternalBlob], string],
-    undefined
-  >,
-  'deleteProduct' : ActorMethod<[string], undefined>,
-  'getAllOrders' : ActorMethod<[], Array<Order>>,
-  'getAllPayouts' : ActorMethod<[], Array<Payout>>,
+  'createStore' : ActorMethod<[string, string, string, string], StoreResponse>,
+  'deactivateStore' : ActorMethod<[string], StoreResponse>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
-  'getCart' : ActorMethod<[], Array<CartItem>>,
-  'getCommissionRate' : ActorMethod<[], bigint>,
-  'getMyOrders' : ActorMethod<[], Array<Order>>,
-  'getOrder' : ActorMethod<[string], Order>,
-  'getPayout' : ActorMethod<[string], [] | [Payout]>,
-  'getPayoutsForVendor' : ActorMethod<[string], Array<Payout>>,
+  'getMyStores' : ActorMethod<[], Array<StoreResponse>>,
+  'getStoreById' : ActorMethod<[string], [] | [StoreResponse]>,
+  'getStoresByVendor' : ActorMethod<[Principal], Array<StoreResponse>>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
-  'getTransaction' : ActorMethod<[string], [] | [TransactionEntry]>,
-  'getTransactionsByBuyer' : ActorMethod<[Principal], Array<TransactionEntry>>,
-  'getTransactionsByVendor' : ActorMethod<[Principal], Array<TransactionEntry>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
-  'getVendorProfile' : ActorMethod<[string], VendorProfile>,
-  'initiatePayout' : ActorMethod<[string], string>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerApproved' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
-  'placeOrder' : ActorMethod<[string], string>,
-  'removeFromCart' : ActorMethod<[string], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  'searchProducts' : ActorMethod<[SearchFilter], Array<Product>>,
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
-  'setCommissionRate' : ActorMethod<[bigint], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
+  'toggleStoreActive' : ActorMethod<[string], StoreResponse>,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
-  'updateOrderStatus' : ActorMethod<[string, OrderStatus], undefined>,
-  'updatePayoutStatus' : ActorMethod<[string, PayoutStatus], undefined>,
-  'updateProduct' : ActorMethod<
-    [
-      string,
-      string,
-      string,
-      bigint,
-      string,
-      ProductType,
-      bigint,
-      [] | [ExternalBlob],
-    ],
-    undefined
-  >,
-  'updateVendorProfile' : ActorMethod<
-    [string, string, string, [] | [ExternalBlob], string],
-    undefined
+  'updateStore' : ActorMethod<
+    [string, string, string, string, string],
+    StoreResponse
   >,
 }
 export declare const idlService: IDL.ServiceClass;

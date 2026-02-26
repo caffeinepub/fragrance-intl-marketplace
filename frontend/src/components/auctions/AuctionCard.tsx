@@ -1,75 +1,84 @@
 import React from 'react';
-import { Link } from '@tanstack/react-router';
-import { Card, CardContent } from '@/components/ui/card';
-import { Gavel, TrendingUp } from 'lucide-react';
-import AuctionCountdown from './AuctionCountdown';
-import AuctionStatusBadge from './AuctionStatusBadge';
-import type { Auction } from '../../hooks/useQueries';
+import { useNavigate } from '@tanstack/react-router';
+import type { Auction } from '../../types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Clock, Gavel } from 'lucide-react';
 
 interface AuctionCardProps {
   auction: Auction;
 }
 
+function useCountdown(endTime: number) {
+  const [timeLeft, setTimeLeft] = React.useState('');
+
+  React.useEffect(() => {
+    const update = () => {
+      const diff = endTime - Date.now();
+      if (diff <= 0) { setTimeLeft('Ended'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${h}h ${m}m ${s}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [endTime]);
+
+  return timeLeft;
+}
+
 export default function AuctionCard({ auction }: AuctionCardProps) {
-  const isEnded = auction.status !== 'active' || Date.now() >= auction.endTime;
+  const countdown = useCountdown(auction.endTime);
+  const navigate = useNavigate();
+
+  const statusColors: Record<string, string> = {
+    active: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    ended: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+    canceled: 'bg-red-500/15 text-red-600 border-red-500/30',
+  };
 
   return (
-    <Link to="/auctions/$auctionId" params={{ auctionId: auction.id }}>
-      <Card className={`group overflow-hidden border border-border hover:border-gold/40 transition-all duration-200 hover:shadow-md cursor-pointer ${isEnded ? 'opacity-75' : ''}`}>
-        {/* Product Image */}
-        <div className="relative aspect-square overflow-hidden bg-muted">
-          <img
-            src={auction.productImage || '/assets/generated/product-placeholder.dim_600x600.png'}
-            alt={auction.productName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-          <div className="absolute top-2 right-2">
-            <AuctionStatusBadge status={isEnded ? 'ended' : auction.status} />
-          </div>
-          {!isEnded && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-              <AuctionCountdown endTime={auction.endTime} compact />
-            </div>
-          )}
+    <div className="bg-card border border-border rounded p-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-serif text-base text-foreground line-clamp-2">{auction.title}</h3>
+        <Badge variant="outline" className={`text-xs shrink-0 ${statusColors[auction.status] ?? ''}`}>
+          {auction.status}
+        </Badge>
+      </div>
+
+      {auction.description && (
+        <p className="font-sans text-xs text-muted-foreground line-clamp-2">{auction.description}</p>
+      )}
+
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs font-sans">
+          <span className="text-muted-foreground">Starting Price</span>
+          <span className="text-foreground">${(auction.startingPrice / 100).toFixed(2)}</span>
         </div>
-
-        <CardContent className="p-4">
-          <h3 className="font-serif text-base text-foreground mb-3 line-clamp-2 group-hover:text-gold transition-colors">
-            {auction.productName}
-          </h3>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-sans text-xs text-muted-foreground">Current Bid</span>
-              <div className="flex items-center gap-1">
-                <TrendingUp className="w-3.5 h-3.5 text-gold" />
-                <span className="font-serif text-base font-semibold text-gold">
-                  ${auction.currentBid.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="font-sans text-xs text-muted-foreground">Starting Price</span>
-              <span className="font-sans text-xs text-muted-foreground">
-                ${auction.startingPrice.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between pt-1 border-t border-border">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Gavel className="w-3.5 h-3.5" />
-                <span className="font-sans text-xs">{auction.bidHistory.length} bid{auction.bidHistory.length !== 1 ? 's' : ''}</span>
-              </div>
-              {isEnded && auction.highestBidderId && (
-                <span className="font-sans text-xs text-emerald-600 dark:text-emerald-400">
-                  Winner: {auction.highestBidderId.slice(0, 8)}…
-                </span>
-              )}
-            </div>
+        {auction.currentBid != null && (
+          <div className="flex justify-between text-xs font-sans">
+            <span className="text-muted-foreground">Current Bid</span>
+            <span className="text-gold font-medium">${(auction.currentBid / 100).toFixed(2)}</span>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 text-xs font-sans text-muted-foreground">
+        <Clock className="w-3 h-3" />
+        <span>{auction.status === 'active' ? countdown : 'Auction ended'}</span>
+      </div>
+
+      <Button
+        size="sm"
+        variant="outline"
+        className="mt-auto border-gold/30 text-bronze hover:bg-gold/5"
+        onClick={() => navigate({ to: '/auctions/$auctionId', params: { auctionId: auction.auctionId } })}
+      >
+        <Gavel className="w-3 h-3 mr-1.5" />
+        View Auction
+      </Button>
+    </div>
   );
 }

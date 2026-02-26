@@ -1,15 +1,7 @@
 import React, { useState } from 'react';
 import { useGetAllOrders, useUpdateOrderStatus } from '../../hooks/useQueries';
-import OrderStatusBadge from '../orders/OrderStatusBadge';
-import { OrderStatus } from '../../backend';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { OrderStatus } from '../../types';
+import { OrderStatusBadge } from '../orders/OrderStatusBadge';
 import {
   Table,
   TableBody,
@@ -18,195 +10,120 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Filter } from 'lucide-react';
-import { toast } from 'sonner';
+import { ShoppingBag } from 'lucide-react';
 
-const ALL_STATUSES = [
-  OrderStatus.pending,
-  OrderStatus.processing,
-  OrderStatus.shipped,
-  OrderStatus.delivered,
-  OrderStatus.canceled,
-];
-
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  [OrderStatus.pending]: 'Pending',
-  [OrderStatus.processing]: 'Processing',
-  [OrderStatus.shipped]: 'Shipped',
-  [OrderStatus.delivered]: 'Delivered',
-  [OrderStatus.canceled]: 'Canceled',
-};
-
-function truncatePrincipal(principal: string): string {
-  if (principal.length <= 16) return principal;
-  return `${principal.slice(0, 8)}…${principal.slice(-6)}`;
-}
-
-function formatDate(ts: bigint): string {
-  const ms = Number(ts) / 1_000_000;
-  return new Date(ms).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function formatPrice(cents: bigint): string {
-  return `$${(Number(cents) / 100).toFixed(2)}`;
-}
+const ALL_STATUSES = Object.values(OrderStatus);
 
 export default function OrderManagementPanel() {
-  const { data: orders, isLoading, refetch, isFetching } = useGetAllOrders();
+  const { data: orders, isLoading } = useGetAllOrders();
   const updateStatus = useUpdateOrderStatus();
-  const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
-  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const filteredOrders = (orders ?? []).filter((o) =>
-    filterStatus === 'all' ? true : o.status === filterStatus
+  const filtered = (orders ?? []).filter(
+    (o) => statusFilter === 'all' || o.status === statusFilter,
   );
 
-  const sortedOrders = [...filteredOrders].sort(
-    (a, b) => Number(b.createdAt) - Number(a.createdAt)
-  );
-
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
-    setUpdatingOrderId(orderId);
+  const handleStatusChange = async (orderId: string, status: OrderStatus) => {
+    setUpdatingId(orderId);
     try {
-      await updateStatus.mutateAsync({ orderId, status: newStatus });
-      toast.success(`Order status updated to ${STATUS_LABELS[newStatus]}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to update status';
-      toast.error(msg);
+      await updateStatus.mutateAsync({ orderId, status });
     } finally {
-      setUpdatingOrderId(null);
+      setUpdatingId(null);
     }
   };
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-12 w-full rounded" />
-        ))}
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select
-            value={filterStatus}
-            onValueChange={(v) => setFilterStatus(v as OrderStatus | 'all')}
-          >
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="Filter by status" />
+          <ShoppingBag className="w-5 h-5 text-gold" />
+          <h3 className="font-serif text-lg text-foreground">All Orders</h3>
+          <Badge variant="secondary">{filtered.length}</Badge>
+        </div>
+        <div className="ml-auto">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-36 h-8 text-xs font-sans border-border">
+              <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Orders</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
               {ALL_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {STATUS_LABELS[s]}
-                </SelectItem>
+                <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Badge variant="secondary" className="text-xs">
-            {sortedOrders.length} order{sortedOrders.length !== 1 ? 's' : ''}
-          </Badge>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="h-8 text-xs"
-        >
-          {isFetching ? (
-            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-          ) : (
-            <RefreshCw className="w-3 h-3 mr-1" />
-          )}
-          Refresh
-        </Button>
       </div>
 
-      {sortedOrders.length === 0 ? (
-        <div className="text-center py-10 text-muted-foreground font-sans text-sm">
-          No orders found{filterStatus !== 'all' ? ` with status "${STATUS_LABELS[filterStatus as OrderStatus]}"` : ''}.
-        </div>
+      {filtered.length === 0 ? (
+        <p className="text-center py-8 text-muted-foreground font-sans text-sm">No orders found.</p>
       ) : (
         <div className="overflow-x-auto rounded border border-border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="font-sans text-xs uppercase tracking-wider">Order ID</TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wider">Customer</TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wider">Date</TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wider">Items</TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wider">Total</TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wider">Status</TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wider">Update Status</TableHead>
+                <TableHead className="font-sans text-xs">Order ID</TableHead>
+                <TableHead className="font-sans text-xs">Customer</TableHead>
+                <TableHead className="font-sans text-xs">Date</TableHead>
+                <TableHead className="font-sans text-xs">Items</TableHead>
+                <TableHead className="font-sans text-xs">Total</TableHead>
+                <TableHead className="font-sans text-xs">Status</TableHead>
+                <TableHead className="font-sans text-xs">Update</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedOrders.map((order) => {
-                const isUpdating = updatingOrderId === order.id;
-                return (
-                  <TableRow key={order.id} className={isUpdating ? 'opacity-60' : ''}>
-                    <TableCell className="font-mono text-xs text-muted-foreground max-w-[120px] truncate">
-                      {order.id}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {truncatePrincipal(order.customer.toString())}
-                    </TableCell>
-                    <TableCell className="font-sans text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDate(order.createdAt)}
-                    </TableCell>
-                    <TableCell className="font-sans text-xs text-center">
-                      {order.items.length}
-                    </TableCell>
-                    <TableCell className="font-serif text-sm text-gold whitespace-nowrap">
-                      {formatPrice(order.total)}
-                    </TableCell>
-                    <TableCell>
-                      <OrderStatusBadge status={order.status} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={order.status}
-                          onValueChange={(v) => handleStatusChange(order.id, v as OrderStatus)}
-                          disabled={isUpdating || order.status === OrderStatus.delivered || order.status === OrderStatus.canceled}
-                        >
-                          <SelectTrigger className="w-36 h-7 text-xs">
-                            {isUpdating ? (
-                              <span className="flex items-center gap-1">
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                Updating…
-                              </span>
-                            ) : (
-                              <SelectValue />
-                            )}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ALL_STATUSES.map((s) => (
-                              <SelectItem key={s} value={s} className="text-xs">
-                                {STATUS_LABELS[s]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {filtered.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-mono text-xs">{order.id.slice(0, 10)}…</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {typeof order.customer === 'string'
+                      ? order.customer.slice(0, 8)
+                      : String(order.customer).slice(0, 8)}…
+                  </TableCell>
+                  <TableCell className="font-sans text-xs text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="font-sans text-sm">{order.items.length}</TableCell>
+                  <TableCell className="font-sans text-sm">
+                    ${(order.total / 100).toFixed(2)}
+                  </TableCell>
+                  <TableCell><OrderStatusBadge status={order.status} /></TableCell>
+                  <TableCell>
+                    <Select
+                      value={order.status}
+                      onValueChange={(v) => handleStatusChange(order.id, v as OrderStatus)}
+                      disabled={updatingId === order.id}
+                    >
+                      <SelectTrigger className="w-32 h-7 text-xs font-sans border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALL_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>

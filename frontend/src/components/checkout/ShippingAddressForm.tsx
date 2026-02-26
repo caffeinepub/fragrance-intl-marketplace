@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -8,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MapPin } from 'lucide-react';
+import { MapPin, ArrowRight } from 'lucide-react';
 
 export interface ShippingAddress {
   street: string;
@@ -19,18 +20,77 @@ export interface ShippingAddress {
 }
 
 interface ShippingAddressFormProps {
-  address: ShippingAddress;
-  onChange: (address: ShippingAddress) => void;
+  address?: ShippingAddress;
+  onChange?: (address: ShippingAddress) => void;
+  onSubmit?: (address: ShippingAddress) => void;
+  skipShipping?: boolean;
 }
 
-const COUNTRIES = ['United States', 'United Kingdom', 'Canada', 'Australia', 'India', 'Germany', 'France', 'Other'];
+const EMPTY: ShippingAddress = {
+  street: '',
+  city: '',
+  state: '',
+  zip: '',
+  country: 'United States',
+};
 
-export default function ShippingAddressForm({ address, onChange }: ShippingAddressFormProps) {
+const COUNTRIES = [
+  'United States', 'United Kingdom', 'Canada', 'Australia',
+  'India', 'Germany', 'France', 'Other',
+];
+
+export default function ShippingAddressForm({
+  address: externalAddress,
+  onChange,
+  onSubmit,
+  skipShipping = false,
+}: ShippingAddressFormProps) {
+  const [internal, setInternal] = React.useState<ShippingAddress>(externalAddress ?? EMPTY);
+
+  // Use controlled value if provided, otherwise internal state
+  const address = externalAddress ?? internal;
+
   const update = (field: keyof ShippingAddress, value: string) => {
-    onChange({ ...address, [field]: value });
+    const updated = { ...address, [field]: value };
+    if (onChange) {
+      onChange(updated);
+    } else {
+      setInternal(updated);
+    }
   };
 
-  return (
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onSubmit) {
+      onSubmit(address);
+    }
+  };
+
+  if (skipShipping) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <MapPin className="w-4 h-4 text-gold" />
+          <h3 className="font-serif text-lg text-foreground">Delivery</h3>
+        </div>
+        <p className="font-sans text-sm text-muted-foreground">
+          Your order contains only digital or service items — no shipping address required.
+        </p>
+        {onSubmit && (
+          <Button
+            type="button"
+            onClick={() => onSubmit(EMPTY)}
+            className="font-sans bg-gold text-background hover:bg-gold/90"
+          >
+            Continue to Review
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  const content = (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <MapPin className="w-4 h-4 text-gold" />
@@ -106,6 +166,22 @@ export default function ShippingAddressForm({ address, onChange }: ShippingAddre
           </Select>
         </div>
       </div>
+
+      {onSubmit && (
+        <Button
+          type="submit"
+          className="font-sans bg-gold text-background hover:bg-gold/90 w-full"
+        >
+          Continue to Review
+          <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      )}
     </div>
   );
+
+  if (onSubmit) {
+    return <form onSubmit={handleSubmit}>{content}</form>;
+  }
+
+  return <div>{content}</div>;
 }

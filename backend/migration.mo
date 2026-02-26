@@ -1,15 +1,16 @@
 import Map "mo:core/Map";
-import Nat "mo:core/Nat";
-import Int "mo:core/Int";
 import List "mo:core/List";
+import Text "mo:core/Text";
 import Principal "mo:core/Principal";
+import UserApproval "user-approval/approval";
+import Stripe "stripe/stripe";
+import AccessControl "authorization/access-control";
+import OutCall "http-outcalls/outcall";
 
 module {
   type ProductType = { #physical; #digital; #service };
   type ProductStatus = { #active; #inactive };
-  type OldOrderStatus = { #pending; #paid; #shipped; #delivered; #canceled };
-  type NewOrderStatus = { #pending; #processing; #shipped; #delivered; #canceled };
-
+  type OrderStatus = { #pending; #processing; #shipped; #delivered; #canceled };
   type PaymentStatus = {
     #pending;
     #initiated;
@@ -18,14 +19,23 @@ module {
     #failed;
   };
 
-  // User Profile
   type UserProfile = {
     name : Text;
     email : ?Text;
     role : Text;
   };
 
-  // Vendor Profile
+  type Store = {
+    storeId : Text;
+    vendorPrincipal : Principal;
+    name : Text;
+    description : Text;
+    contactEmail : Text;
+    logoUrl : Text;
+    isActive : Bool;
+    createdAt : Int;
+  };
+
   type VendorProfile = {
     id : Text;
     name : Text;
@@ -34,9 +44,9 @@ module {
     contact : Text;
     approved : Bool;
     createdBy : Principal;
+    principal : Text;
   };
 
-  // Product
   type Product = {
     id : Text;
     vendorId : Text;
@@ -50,32 +60,17 @@ module {
     status : ProductStatus;
   };
 
-  // Cart data
   type CartItem = {
     productId : Text;
     quantity : Nat;
   };
 
-  // OLD Order (pre-migration)
-  type OldOrder = {
+  type Order = {
     id : Text;
     customer : Principal;
     items : [CartItem];
     total : Nat;
-    status : OldOrderStatus;
-    shippingAddress : Text;
-    timestamp : Int;
-    paymentUrl : ?Text;
-    paymentConfirmed : Bool;
-  };
-
-  // NEW Order (post-migration)
-  type NewOrder = {
-    id : Text;
-    customer : Principal;
-    items : [CartItem];
-    total : Nat;
-    status : NewOrderStatus;
+    status : OrderStatus;
     shippingAddress : Text;
     timestamp : Int;
     paymentUrl : ?Text;
@@ -83,43 +78,79 @@ module {
     paymentSessionId : ?Text;
     createdAt : Int;
     updatedAt : Int;
-    statusHistory : [NewOrderStatus];
+    statusHistory : [OrderStatus];
     paymentHistory : [PaymentStatus];
   };
 
-  // Old actor state
+  type TransactionEntry = {
+    orderId : Text;
+    buyer : Principal;
+    vendor : Principal;
+    items : [CartItem];
+    totalAmount : Int;
+    commissionFee : Int;
+    netPayout : Int;
+    timestamp : Int;
+  };
+
+  type SearchFilter = {
+    keyword : ?Text;
+    category : ?Text;
+    productType : ?ProductType;
+    sortBy : ?{ #priceAsc; #priceDesc; #quantityDesc };
+  };
+
+  type PayoutStatus = {
+    #pending;
+    #processing;
+    #completed;
+    #failed;
+  };
+
+  type Payout = {
+    payoutId : Text;
+    vendorId : Text;
+    orderId : Text;
+    grossAmount : Nat;
+    commissionAmount : Nat;
+    netAmount : Nat;
+    status : PayoutStatus;
+    createdAt : Int;
+    updatedAt : Int;
+  };
+
   type OldActor = {
     userProfiles : Map.Map<Principal, UserProfile>;
     vendorProfiles : Map.Map<Text, VendorProfile>;
     products : Map.Map<Text, Product>;
     carts : Map.Map<Principal, List.List<CartItem>>;
-    orders : Map.Map<Text, OldOrder>;
+    orders : Map.Map<Text, Order>;
+    transactions : Map.Map<Text, TransactionEntry>;
+    payouts : Map.Map<Text, Payout>;
+    stores : Map.Map<Text, Store>;
+    vendorStores : Map.Map<Principal, List.List<Text>>;
+    approvalState : UserApproval.UserApprovalState;
+    accessControlState : AccessControl.AccessControlState;
+    commissionRate : Nat;
+    stripeConfig : ?Stripe.StripeConfiguration;
   };
 
-  // New actor state
   type NewActor = {
     userProfiles : Map.Map<Principal, UserProfile>;
     vendorProfiles : Map.Map<Text, VendorProfile>;
     products : Map.Map<Text, Product>;
     carts : Map.Map<Principal, List.List<CartItem>>;
-    orders : Map.Map<Text, NewOrder>;
+    orders : Map.Map<Text, Order>;
+    transactions : Map.Map<Text, TransactionEntry>;
+    payouts : Map.Map<Text, Payout>;
+    stores : Map.Map<Text, Store>;
+    vendorStores : Map.Map<Principal, List.List<Text>>;
+    approvalState : UserApproval.UserApprovalState;
+    accessControlState : AccessControl.AccessControlState;
+    commissionRate : Nat;
+    stripeConfig : ?Stripe.StripeConfiguration;
   };
 
-  public func run(old : OldActor) : NewActor {
-    let newOrders = old.orders.map<Text, OldOrder, NewOrder>(
-      func(_id, oldOrder) {
-        {
-          oldOrder with
-          status = #pending;
-          paymentStatus = #pending;
-          paymentSessionId = null;
-          createdAt = oldOrder.timestamp;
-          updatedAt = oldOrder.timestamp;
-          statusHistory = [#pending];
-          paymentHistory = [#pending];
-        };
-      }
-    );
-    { old with orders = newOrders };
-  };
+  // Map old persistent store data to new actor state during upgrade
+  public func run(old : OldActor) : NewActor { old };
 };

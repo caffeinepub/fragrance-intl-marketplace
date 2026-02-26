@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import type { Product } from '../../types';
 import { useSearchProducts, useDeleteProduct } from '../../hooks/useQueries';
-import { type Product } from '../../backend';
+import ProductForm from './ProductForm';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,51 +11,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import ProductForm from './ProductForm';
-import { Edit2, Trash2, Package, Plus } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ProductListManagerProps {
   vendorId: string;
 }
 
-export default function ProductListManager({ vendorId }: ProductListManagerProps) {
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
+function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
-  const { data: products, isLoading } = useSearchProducts({ keyword: undefined, category: undefined, productType: undefined, sortBy: undefined });
+export default function ProductListManager({ vendorId }: ProductListManagerProps) {
+  const { data: products, isLoading } = useSearchProducts({ keyword: null, category: null, productType: null, sortBy: null });
   const deleteProduct = useDeleteProduct();
 
-  const vendorProducts = products?.filter((p) => p.vendorId === vendorId) || [];
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const vendorProducts = (products ?? []).filter((p) => p.vendorId === vendorId);
+
+  const openCreate = () => {
+    setEditingProduct(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (product: Product) => {
+    setEditingProduct(product);
+    setDialogOpen(true);
+  };
 
   const handleDelete = async (id: string) => {
+    setDeletingId(id);
     try {
       await deleteProduct.mutateAsync(id);
       toast.success('Product deleted');
-    } catch {
-      toast.error('Failed to delete product');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete product');
+    } finally {
+      setDeletingId(null);
     }
-  };
-
-  const formatPrice = (price: bigint) => {
-    return `$${(Number(price) / 100).toFixed(2)}`;
   };
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded" />)}
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded" />)}
       </div>
     );
   }
@@ -62,13 +65,11 @@ export default function ProductListManager({ vendorId }: ProductListManagerProps
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground font-sans">
-          {vendorProducts.length} product{vendorProducts.length !== 1 ? 's' : ''}
-        </p>
+        <p className="font-sans text-sm text-muted-foreground">{vendorProducts.length} product{vendorProducts.length !== 1 ? 's' : ''}</p>
         <Button
           size="sm"
-          onClick={() => setShowAddForm(true)}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={openCreate}
+          className="font-sans bg-gold text-background hover:bg-gold/90"
         >
           <Plus className="w-4 h-4 mr-1.5" />
           Add Product
@@ -76,110 +77,78 @@ export default function ProductListManager({ vendorId }: ProductListManagerProps
       </div>
 
       {vendorProducts.length === 0 ? (
-        <div className="text-center py-12 border border-dashed border-gold/30 rounded">
-          <Package className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-40" />
-          <p className="font-sans text-muted-foreground">No products yet. Add your first product!</p>
+        <div className="text-center py-10 border border-dashed border-border rounded">
+          <Package className="w-10 h-10 mx-auto mb-3 text-muted-foreground opacity-30" />
+          <p className="font-sans text-sm text-muted-foreground">No products yet. Add your first product.</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {vendorProducts.map((product) => (
             <div
               key={product.id}
-              className="flex items-center justify-between p-4 rounded border border-border bg-card hover:border-gold/30 transition-colors"
+              className="flex items-center gap-3 bg-background border border-border rounded p-3"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  <img
-                    src="/assets/generated/product-placeholder.dim_600x600.png"
-                    alt={product.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-sans font-medium text-foreground truncate">{product.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-sm text-gold font-medium">{formatPrice(product.price)}</span>
-                    <Badge variant="outline" className="text-xs border-gold/30 text-bronze">
-                      {product.category}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs capitalize">
-                      {product.productType}
-                    </Badge>
+              <div className="w-10 h-10 bg-muted rounded shrink-0 overflow-hidden">
+                {product.image ? (
+                  <img src={product.image} alt={product.title} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                    <Package className="w-4 h-4 text-muted-foreground opacity-40" />
                   </div>
-                </div>
+                )}
               </div>
-
-              <div className="flex gap-2 flex-shrink-0">
+              <div className="flex-1 min-w-0">
+                <p className="font-sans text-sm text-foreground truncate">{product.title}</p>
+                <p className="font-sans text-xs text-muted-foreground">{product.category}</p>
+              </div>
+              <span className="font-sans text-sm text-gold font-medium shrink-0">{formatPrice(product.price)}</span>
+              <Badge
+                variant="outline"
+                className={`text-xs shrink-0 ${product.status === 'active' ? 'border-emerald-500/30 text-emerald-600' : 'border-border text-muted-foreground'}`}
+              >
+                {product.status}
+              </Badge>
+              <div className="flex items-center gap-1 shrink-0">
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => setEditingProduct(product)}
-                  className="w-8 h-8 hover:bg-gold/10"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => openEdit(product)}
                 >
-                  <Edit2 className="w-3.5 h-3.5" />
+                  <Pencil className="w-3.5 h-3.5" />
                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="w-8 h-8 hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Product</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete "{product.title}"? This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleDelete(product.id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  onClick={() => handleDelete(product.id)}
+                  disabled={deletingId === product.id}
+                >
+                  {deletingId === product.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                </Button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Add Product Dialog */}
-      <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <Dialog open={dialogOpen} onOpenChange={(open) => !open && setDialogOpen(false)}>
+        <DialogContent className="sm:max-w-lg bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="font-serif text-xl">Add New Product</DialogTitle>
+            <DialogTitle className="font-serif text-xl text-foreground">
+              {editingProduct ? 'Edit Product' : 'Add Product'}
+            </DialogTitle>
           </DialogHeader>
           <ProductForm
             vendorId={vendorId}
-            onSuccess={() => setShowAddForm(false)}
-            onCancel={() => setShowAddForm(false)}
+            product={editingProduct}
+            onSuccess={() => setDialogOpen(false)}
+            onCancel={() => setDialogOpen(false)}
           />
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Product Dialog */}
-      <Dialog open={!!editingProduct} onOpenChange={(open) => !open && setEditingProduct(null)}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-xl">Edit Product</DialogTitle>
-          </DialogHeader>
-          {editingProduct && (
-            <ProductForm
-              vendorId={vendorId}
-              product={editingProduct}
-              onSuccess={() => setEditingProduct(null)}
-              onCancel={() => setEditingProduct(null)}
-            />
-          )}
         </DialogContent>
       </Dialog>
     </div>

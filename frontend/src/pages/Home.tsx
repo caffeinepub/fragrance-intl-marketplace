@@ -1,70 +1,85 @@
 import React from 'react';
-import HeroBanner from '../components/layout/HeroBanner';
-import ProductGrid from '../components/products/ProductGrid';
 import { useSearchProducts } from '../hooks/useQueries';
-import { Variant_quantityDesc_priceDesc_priceAsc } from '../backend';
-import { Sparkles, TrendingUp, Shield } from 'lucide-react';
-
-const FEATURES = [
-  {
-    icon: Sparkles,
-    title: 'Curated Selection',
-    desc: 'Hand-picked fragrances from artisan vendors and luxury houses worldwide.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Multi-Vendor Marketplace',
-    desc: 'Discover unique scents from independent perfumers and established brands.',
-  },
-  {
-    icon: Shield,
-    title: 'Secure & Decentralized',
-    desc: 'Powered by ICP blockchain for transparent, trustless transactions.',
-  },
-];
+import { Variant_quantityDesc_priceDesc_priceAsc } from '../types';
+import ProductGrid from '../components/products/ProductGrid';
+import { Button } from '@/components/ui/button';
+import { Link } from '@tanstack/react-router';
+import { Sparkles, ShieldCheck, Truck } from 'lucide-react';
 
 export default function Home() {
-  const { data: featuredProducts, isLoading } = useSearchProducts({
-    sortBy: Variant_quantityDesc_priceDesc_priceAsc.priceDesc,
+  const { data: products, isLoading } = useSearchProducts({
+    keyword: null,
+    category: null,
+    productType: null,
+    sortBy: Variant_quantityDesc_priceDesc_priceAsc.quantityDesc,
   });
 
-  const featured = featuredProducts?.slice(0, 8) || [];
+  const featured = (products ?? []).slice(0, 8);
 
   return (
     <main>
-      <HeroBanner />
-
-      {/* Features */}
-      <section className="bg-secondary/30 border-y border-border py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {FEATURES.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <div key={feature.title} className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded bg-gold/10 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-5 h-5 text-gold" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif text-base text-foreground mb-1">{feature.title}</h3>
-                    <p className="font-sans text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
-                  </div>
-                </div>
-              );
-            })}
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0">
+          <img
+            src="/assets/generated/hero-banner.dim_1440x480.png"
+            alt="Fragrance collection"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-background/70" />
+        </div>
+        <div className="relative container mx-auto px-4 py-24 text-center">
+          <p className="font-sans text-xs text-gold uppercase tracking-[0.3em] mb-4">
+            Luxury Fragrance Marketplace
+          </p>
+          <h1 className="font-serif text-4xl md:text-6xl text-foreground mb-4">
+            Discover Your Signature Scent
+          </h1>
+          <p className="font-sans text-base text-muted-foreground max-w-xl mx-auto mb-8">
+            Curated fragrances from independent artisan vendors. Find rare perfumes, exclusive colognes, and bespoke scents.
+          </p>
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <Button asChild size="lg" className="font-sans bg-gold text-background hover:bg-gold/90">
+              <Link to="/products">Shop Now</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="font-sans border-gold/30 text-bronze hover:bg-gold/5">
+              <Link to="/auctions">Live Auctions</Link>
+            </Button>
           </div>
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section className="container mx-auto px-4 py-14">
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <p className="font-sans text-xs text-gold uppercase tracking-[0.2em] mb-2">Marketplace</p>
-            <h2 className="font-serif text-3xl text-foreground">Featured Fragrances</h2>
-          </div>
+      {/* Features */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            { icon: <Sparkles className="w-6 h-6 text-gold" />, title: 'Curated Selection', desc: 'Hand-picked fragrances from verified artisan vendors worldwide.' },
+            { icon: <ShieldCheck className="w-6 h-6 text-gold" />, title: 'Authenticity Guaranteed', desc: 'Every product verified for authenticity before listing.' },
+            { icon: <Truck className="w-6 h-6 text-gold" />, title: 'Secure Delivery', desc: 'Careful packaging and tracked shipping on all physical orders.' },
+          ].map((f) => (
+            <div key={f.title} className="text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center mx-auto">
+                {f.icon}
+              </div>
+              <h3 className="font-serif text-lg text-foreground">{f.title}</h3>
+              <p className="font-sans text-sm text-muted-foreground">{f.desc}</p>
+            </div>
+          ))}
         </div>
-        <ProductGrid products={featured} isLoading={isLoading} emptyMessage="No products listed yet. Be the first vendor!" />
+      </section>
+
+      {/* Featured Products */}
+      <section className="container mx-auto px-4 pb-16">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="font-sans text-xs text-gold uppercase tracking-[0.2em] mb-1">Featured</p>
+            <h2 className="font-serif text-2xl text-foreground">Popular Fragrances</h2>
+          </div>
+          <Button asChild variant="ghost" className="font-sans text-sm text-muted-foreground hover:text-foreground">
+            <Link to="/products">View All</Link>
+          </Button>
+        </div>
+        <ProductGrid products={featured} isLoading={isLoading} />
       </section>
     </main>
   );

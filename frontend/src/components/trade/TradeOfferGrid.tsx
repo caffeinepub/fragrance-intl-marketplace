@@ -1,52 +1,40 @@
 import React from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+import type { TradeOffer } from '../../types';
 import TradeOfferCard from './TradeOfferCard';
-import type { TradeOffer } from '../../hooks/useQueries';
-import { ArrowLeftRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface TradeOfferGridProps {
   offers: TradeOffer[];
-  currentUserId: string;
+  perspective: 'incoming' | 'outgoing';
   isLoading?: boolean;
-  emptyMessage?: string;
-  onAction?: () => void;
+  onCounter?: (offer: TradeOffer) => void;
 }
 
-export default function TradeOfferGrid({
-  offers,
-  currentUserId,
-  isLoading,
-  emptyMessage = 'No trade offers found.',
-  onAction,
-}: TradeOfferGridProps) {
+export default function TradeOfferGrid({ offers, perspective, isLoading, onCounter }: TradeOfferGridProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-48 w-full rounded" />
-        ))}
+      <div className="space-y-3">
+        {[1, 2].map((i) => <Skeleton key={i} className="h-32 w-full rounded" />)}
       </div>
     );
   }
 
   if (offers.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <ArrowLeftRight className="w-10 h-10 text-muted-foreground opacity-30 mb-3" />
-        <p className="font-serif text-lg text-foreground mb-1">No Offers</p>
-        <p className="font-sans text-sm text-muted-foreground">{emptyMessage}</p>
+      <div className="text-center py-10">
+        <p className="font-sans text-sm text-muted-foreground">No trade offers found.</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-3">
       {offers.map((offer) => (
         <TradeOfferCard
-          key={offer.id}
+          key={offer.offerId}
           offer={offer}
-          currentUserId={currentUserId}
-          onAction={onAction}
+          perspective={perspective}
+          onCounter={onCounter}
         />
       ))}
     </div>

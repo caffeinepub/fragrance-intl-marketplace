@@ -1,19 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Add a full Auction system with bidding logic and countdown timers, and a Barter/Trade Offer system between users, to the Fragrance.Intl Marketplace.
+**Goal:** Break the second pass of vendor store management into smaller incremental steps, implementing backend store CRUD support, frontend React Query hooks, and wiring up store management UI components in the VendorDashboard.
 
 **Planned changes:**
-- Extend the backend actor with an Auction data model and functions: `createAuction`, `placeBid`, `cancelAuction`, `getAuction`, `listActiveAuctions`, `listAuctionsByVendor`, and `finalizeAuction`
-- Extend the backend actor with a Trade Offer data model and functions: `createTradeOffer`, `acceptTradeOffer`, `rejectTradeOffer`, `cancelTradeOffer`, `counterTradeOffer`, `getTradeOffer`, `listTradeOffersForUser`, and `listAllTradeOffers`
-- Add `/auctions` page displaying active auction cards with product image, current bid, bid count, and live client-side countdown timers
-- Add `/auctions/$auctionId` detail page with full auction info, bid history, live countdown, and a bid submission form for authenticated users
-- Add an "Auctions" section to the Vendor Dashboard for creating and managing their auctions
-- Add an "Auction Management" panel to the Admin Dashboard for viewing, cancelling, and finalizing auctions
-- Add `/trade-offers` page (authenticated only) with Incoming and Outgoing tabs, status badges, and contextual action buttons (Accept, Reject, Cancel, Counter)
-- Add a "New Trade Offer" form flow allowing users to select offered products, specify requested items, optional cash adjustment, and a receiver
-- Add a "Trade Offer Management" panel to the Admin Dashboard visible to admins and moderators
-- Add "Auctions" link to the site header navigation and "Trade Offers" link to the user profile dropdown/header
-- Add React Query hooks in `useQueries.ts` for all new auction and trade offer backend functions
+- Add `createStore`, `updateStore`, `getStoresByVendor`, and `toggleStoreActive` methods to the Motoko backend actor, persisting store records in stable state with a 5-store limit per vendor
+- Add `useCreateStore`, `useUpdateStore`, `useGetStoresByVendor`, and `useToggleStoreActive` React Query hooks in `useQueries.ts` wired to the backend methods
+- Connect `StoreFormModal` to `useCreateStore` and `useUpdateStore` hooks for creating and editing stores, with success/error toasts
+- Integrate `StoreListManager` into `VendorDashboard` with create, edit, and toggle-active controls using the store hooks
+- Integrate `StoreSelector` into `VendorDashboard` to allow vendors to select an active store context, persisting the selected store ID in component state for use by other vendor panels
 
-**User-visible outcome:** Users can browse and participate in live timed auctions with real-time countdowns and bid history. Users can initiate, respond to, and manage barter/trade offers with other users. Vendors can create and manage their own auctions. Admins and moderators can oversee and manage all auctions and trade offers from the Admin Dashboard.
+**User-visible outcome:** Vendors can create up to 5 stores, edit store details, toggle stores active/inactive, and select an active store context from their dashboard.

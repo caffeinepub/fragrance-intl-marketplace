@@ -16,7 +16,10 @@ import Storage "blob-storage/Storage";
 import UserApproval "user-approval/approval";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
+import Migration "migration";
 
+// Use explicit migration logic (see migration.mo)
+(with migration = Migration.run)
 actor {
   include MixinStorage();
   let accessControlState = AccessControl.initState();
@@ -40,6 +43,17 @@ actor {
     role : Text;
   };
 
+  type Store = {
+    storeId : Text;
+    vendorPrincipal : Principal;
+    name : Text;
+    description : Text;
+    contactEmail : Text;
+    logoUrl : Text;
+    isActive : Bool;
+    createdAt : Int;
+  };
+
   type VendorProfile = {
     id : Text;
     name : Text;
@@ -48,6 +62,7 @@ actor {
     contact : Text;
     approved : Bool;
     createdBy : Principal;
+    principal : Text;
   };
 
   type Product = {
@@ -130,14 +145,27 @@ actor {
     updatedAt : Int;
   };
 
+  public type StoreResponse = {
+    storeId : Text;
+    name : Text;
+    description : Text;
+    contactEmail : Text;
+    logoUrl : Text;
+    isActive : Bool;
+    createdAt : Int;
+  };
+
   let userProfiles = Map.empty<Principal, UserProfile>();
   let vendorProfiles = Map.empty<Text, VendorProfile>();
   let products = Map.empty<Text, Product>();
   let carts = Map.empty<Principal, List.List<CartItem>>();
   let orders = Map.empty<Text, Order>();
   let payouts = Map.empty<Text, Payout>();
-  var commissionRate : Nat = 5;
 
+  let stores = Map.empty<Text, Store>();
+  let vendorStores = Map.empty<Principal, List.List<Text>>();
+
+  var commissionRate : Nat = 5;
   var stripeConfig : ?Stripe.StripeConfiguration = null;
 
   public query func isStripeConfigured() : async Bool {
@@ -197,288 +225,297 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  public shared ({ caller }) func createVendorProfile(
-    id : Text, name : Text, description : Text, logo : ?Storage.ExternalBlob, contact : Text
-  ) : async () {
+  // Store management functions
+
+  // getMyStores: requires authenticated user
+  public query ({ caller }) func getMyStores() : async [StoreResponse] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can register as a vendor");
+      Runtime.trap("Unauthorized: Only authenticated users can view their stores");
     };
-    if (vendorProfiles.containsKey(id)) {
-      Runtime.trap("Store ID already exists");
+    let storeIds = switch (vendorStores.get(caller)) {
+      case (null) { List.empty<Text>() };
+      case (?ids) { ids };
     };
-    let vendorProfile : VendorProfile = {
-      id; name; description; logo = null; contact; approved = false; createdBy = caller
-    };
-    vendorProfiles.add(id, vendorProfile);
+    let storesArray = storeIds.toArray();
+    let storeResponses = storesArray.map(
+      func(storeId) {
+        switch (stores.get(storeId)) {
+          case (null) {
+            {
+              storeId = storeId;
+              name = "Unknown";
+              description = "";
+              contactEmail = "";
+              logoUrl = "";
+              isActive = false;
+              createdAt = 0;
+            };
+          };
+          case (?store) {
+            {
+              storeId = store.storeId;
+              name = store.name;
+              description = store.description;
+              contactEmail = store.contactEmail;
+              logoUrl = store.logoUrl;
+              isActive = store.isActive;
+              createdAt = store.createdAt;
+            };
+          };
+        };
+      }
+    );
+    storeResponses;
   };
 
-  public shared ({ caller }) func approveVendorProfile(id : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can approve vendor profiles");
+  // getStoresByVendor: public query, anyone can view stores belonging to a vendor
+  public query func getStoresByVendor(vendor : Principal) : async [StoreResponse] {
+    let storeIds = switch (vendorStores.get(vendor)) {
+      case (null) { List.empty<Text>() };
+      case (?ids) { ids };
     };
-    switch (vendorProfiles.get(id)) {
-      case (null) { Runtime.trap("Vendor profile not found") };
-      case (?vendorProfile) {
-        let updatedProfile : VendorProfile = {
-          id = vendorProfile.id;
-          name = vendorProfile.name;
-          description = vendorProfile.description;
-          logo = vendorProfile.logo;
-          contact = vendorProfile.contact;
-          approved = true;
-          createdBy = vendorProfile.createdBy;
+    let storesArray = storeIds.toArray();
+    let storeResponses = storesArray.map(
+      func(storeId) {
+        switch (stores.get(storeId)) {
+          case (null) {
+            {
+              storeId = storeId;
+              name = "Unknown";
+              description = "";
+              contactEmail = "";
+              logoUrl = "";
+              isActive = false;
+              createdAt = 0;
+            };
+          };
+          case (?store) {
+            {
+              storeId = store.storeId;
+              name = store.name;
+              description = store.description;
+              contactEmail = store.contactEmail;
+              logoUrl = store.logoUrl;
+              isActive = store.isActive;
+              createdAt = store.createdAt;
+            };
+          };
         };
-        vendorProfiles.add(id, updatedProfile);
+      }
+    );
+    storeResponses;
+  };
+
+  // getStoreById: public, anyone can view a store
+  public query func getStoreById(storeId : Text) : async ?StoreResponse {
+    switch (stores.get(storeId)) {
+      case (null) { null };
+      case (?store) {
+        ?{
+          storeId = store.storeId;
+          name = store.name;
+          description = store.description;
+          contactEmail = store.contactEmail;
+          logoUrl = store.logoUrl;
+          isActive = store.isActive;
+          createdAt = store.createdAt;
+        };
       };
     };
   };
 
-  public shared ({ caller }) func updateVendorProfile(
-    id : Text, name : Text, description : Text, logo : ?Storage.ExternalBlob, contact : Text
-  ) : async () {
+  // createStore: approved vendors only (admin counts as approved), max 5 stores per vendor
+  public shared ({ caller }) func createStore(name : Text, description : Text, contactEmail : Text, logoUrl : Text) : async StoreResponse {
+    // Must be an authenticated user
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can update vendor profiles");
+      Runtime.trap("Unauthorized: Only authenticated users can create stores");
     };
-    switch (vendorProfiles.get(id)) {
-      case (null) { Runtime.trap("Vendor profile not found") };
-      case (?vendorProfile) {
-        if (vendorProfile.createdBy != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-          Runtime.trap("Unauthorized: Only the vendor owner or an admin can update this profile");
+    // Must be an approved vendor (or admin)
+    if (not (AccessControl.isAdmin(accessControlState, caller)) and not UserApproval.isApproved(approvalState, caller)) {
+      Runtime.trap("Unauthorized: Only approved vendors can create stores");
+    };
+
+    // Check max 5 stores per vendor
+    switch (vendorStores.get(caller)) {
+      case (null) {};
+      case (?existingStores) {
+        if (existingStores.size() >= 5) {
+          Runtime.trap("Vendor cannot have more than 5 stores");
         };
-        if (not vendorProfile.approved and not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-          Runtime.trap("Unauthorized: Vendor profile is not yet approved");
+      };
+    };
+
+    let storeId = "store_" # Time.now().toText();
+    let newStore = {
+      storeId;
+      vendorPrincipal = caller;
+      name;
+      description;
+      contactEmail;
+      logoUrl;
+      isActive = true;
+      createdAt = Time.now();
+    };
+
+    stores.add(storeId, newStore);
+    switch (vendorStores.get(caller)) {
+      case (null) {
+        let newStoreList = List.empty<Text>();
+        newStoreList.add(storeId);
+        vendorStores.add(caller, newStoreList);
+      };
+      case (?existingStoreList) { existingStoreList.add(storeId) };
+    };
+
+    {
+      storeId = newStore.storeId;
+      name = newStore.name;
+      description = newStore.description;
+      contactEmail = newStore.contactEmail;
+      logoUrl = newStore.logoUrl;
+      isActive = newStore.isActive;
+      createdAt = newStore.createdAt;
+    };
+  };
+
+  // updateStore: authenticated user + store owner only
+  public shared ({ caller }) func updateStore(storeId : Text, name : Text, description : Text, contactEmail : Text, logoUrl : Text) : async StoreResponse {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can update stores");
+    };
+    switch (stores.get(storeId)) {
+      case (null) { Runtime.trap("Store not found") };
+      case (?store) {
+        if (store.vendorPrincipal != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Only the store owner can update this store");
         };
-        let updatedProfile : VendorProfile = {
-          id = vendorProfile.id;
+        let updatedStore = {
+          storeId = store.storeId;
+          vendorPrincipal = store.vendorPrincipal;
           name;
           description;
-          logo = vendorProfile.logo;
-          contact;
-          approved = vendorProfile.approved;
-          createdBy = vendorProfile.createdBy;
+          contactEmail;
+          logoUrl;
+          isActive = store.isActive;
+          createdAt = store.createdAt;
         };
-        vendorProfiles.add(id, updatedProfile);
+        stores.add(storeId, updatedStore);
+        {
+          storeId = updatedStore.storeId;
+          name = updatedStore.name;
+          description = updatedStore.description;
+          contactEmail = updatedStore.contactEmail;
+          logoUrl = updatedStore.logoUrl;
+          isActive = updatedStore.isActive;
+          createdAt = updatedStore.createdAt;
+        };
+      };
+    };
+  };
+
+  // toggleStoreActive: authenticated user + store owner only (or admin)
+  public shared ({ caller }) func toggleStoreActive(storeId : Text) : async StoreResponse {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can toggle store status");
+    };
+    switch (stores.get(storeId)) {
+      case (null) { Runtime.trap("Store not found") };
+      case (?store) {
+        if (store.vendorPrincipal != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Only the store owner can toggle this store's status");
+        };
+        let updatedStore = {
+          storeId = store.storeId;
+          vendorPrincipal = store.vendorPrincipal;
+          name = store.name;
+          description = store.description;
+          contactEmail = store.contactEmail;
+          logoUrl = store.logoUrl;
+          isActive = not store.isActive;
+          createdAt = store.createdAt;
+        };
+        stores.add(storeId, updatedStore);
+        {
+          storeId = updatedStore.storeId;
+          name = updatedStore.name;
+          description = updatedStore.description;
+          contactEmail = updatedStore.contactEmail;
+          logoUrl = updatedStore.logoUrl;
+          isActive = updatedStore.isActive;
+          createdAt = updatedStore.createdAt;
+        };
       };
     };
   };
 
-  public query func getVendorProfile(id : Text) : async VendorProfile {
-    switch (vendorProfiles.get(id)) {
-      case (null) { Runtime.trap("Vendor profile not found") };
-      case (?profile) { profile };
-    };
-  };
-
-  public shared ({ caller }) func createProduct(
-    id : Text, vendorId : Text, title : Text, description : Text, price : Nat, category : Text, productType : ProductType, stock : Nat, image : ?Storage.ExternalBlob
-  ) : async () {
+  // deactivateStore: authenticated user + store owner only (or admin)
+  public shared ({ caller }) func deactivateStore(storeId : Text) : async StoreResponse {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can create products");
+      Runtime.trap("Unauthorized: Only authenticated users can deactivate stores");
     };
-    switch (vendorProfiles.get(vendorId)) {
-      case (null) { Runtime.trap("Vendor profile not found") };
-      case (?vendorProfile) {
-        if (vendorProfile.createdBy != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-          Runtime.trap("Unauthorized: Only the vendor owner can create products for this store");
+    switch (stores.get(storeId)) {
+      case (null) { Runtime.trap("Store not found") };
+      case (?store) {
+        if (store.vendorPrincipal != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Only the store owner can deactivate this store");
         };
-        if (not vendorProfile.approved and not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-          Runtime.trap("Unauthorized: Vendor profile is not yet approved");
+        let updatedStore = {
+          storeId = store.storeId;
+          vendorPrincipal = store.vendorPrincipal;
+          name = store.name;
+          description = store.description;
+          contactEmail = store.contactEmail;
+          logoUrl = store.logoUrl;
+          isActive = false;
+          createdAt = store.createdAt;
         };
-      };
-    };
-    if (products.containsKey(id)) {
-      Runtime.trap("Product ID already exists");
-    };
-    let product : Product = {
-      id; vendorId; title; description; price; category; productType; stock; image = null; status = #active
-    };
-    products.add(id, product);
-  };
-
-  public shared ({ caller }) func updateProduct(
-    id : Text, title : Text, description : Text, price : Nat, category : Text, productType : ProductType, stock : Nat, image : ?Storage.ExternalBlob
-  ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can update products");
-    };
-    switch (products.get(id)) {
-      case (null) { Runtime.trap("Product not found") };
-      case (?product) {
-        switch (vendorProfiles.get(product.vendorId)) {
-          case (null) { Runtime.trap("Vendor profile not found") };
-          case (?vendorProfile) {
-            if (vendorProfile.createdBy != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-              Runtime.trap("Unauthorized: Only the vendor owner can update this product");
-            };
-          };
+        stores.add(storeId, updatedStore);
+        {
+          storeId = updatedStore.storeId;
+          name = updatedStore.name;
+          description = updatedStore.description;
+          contactEmail = updatedStore.contactEmail;
+          logoUrl = updatedStore.logoUrl;
+          isActive = updatedStore.isActive;
+          createdAt = updatedStore.createdAt;
         };
-        let updatedProduct : Product = {
-          id = product.id;
-          vendorId = product.vendorId;
-          title;
-          description;
-          price;
-          category;
-          productType;
-          stock;
-          image = product.image;
-          status = product.status;
-        };
-        products.add(id, updatedProduct);
       };
     };
   };
 
-  public shared ({ caller }) func deleteProduct(id : Text) : async () {
+  // activateStore: authenticated user + store owner only (or admin)
+  public shared ({ caller }) func activateStore(storeId : Text) : async StoreResponse {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can delete products");
+      Runtime.trap("Unauthorized: Only authenticated users can activate stores");
     };
-    switch (products.get(id)) {
-      case (null) { Runtime.trap("Product not found") };
-      case (?product) {
-        switch (vendorProfiles.get(product.vendorId)) {
-          case (null) { Runtime.trap("Vendor profile not found") };
-          case (?vendorProfile) {
-            if (vendorProfile.createdBy != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-              Runtime.trap("Unauthorized: Only the vendor owner can delete this product");
-            };
-          };
+    switch (stores.get(storeId)) {
+      case (null) { Runtime.trap("Store not found") };
+      case (?store) {
+        if (store.vendorPrincipal != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Only the store owner can activate this store");
         };
-        products.remove(id);
+        let updatedStore = {
+          storeId = store.storeId;
+          vendorPrincipal = store.vendorPrincipal;
+          name = store.name;
+          description = store.description;
+          contactEmail = store.contactEmail;
+          logoUrl = store.logoUrl;
+          isActive = true;
+          createdAt = store.createdAt;
+        };
+        stores.add(storeId, updatedStore);
+        {
+          storeId = updatedStore.storeId;
+          name = updatedStore.name;
+          description = updatedStore.description;
+          contactEmail = updatedStore.contactEmail;
+          logoUrl = updatedStore.logoUrl;
+          isActive = updatedStore.isActive;
+          createdAt = updatedStore.createdAt;
+        };
       };
     };
-  };
-
-  public query func searchProducts(filter : SearchFilter) : async [Product] {
-    var result : [Product] = products.values().toArray();
-    result := result.filter(
-      func(product : Product) : Bool {
-        let matchesKeyword = switch (filter.keyword) {
-          case (null) { true };
-          case (?keyword) {
-            product.title.contains(#text keyword) or product.description.contains(#text keyword)
-          };
-        };
-        let matchesCategory = switch (filter.category) {
-          case (null) { true };
-          case (?category) { product.category == category };
-        };
-        let matchesType = switch (filter.productType) {
-          case (null) { true };
-          case (?productType) { product.productType == productType };
-        };
-        matchesKeyword and matchesCategory and matchesType and product.status == #active;
-      },
-    );
-    switch (filter.sortBy) {
-      case (null) { result };
-      case (?sortBy) {
-        let compareFunc = switch (sortBy) {
-          case (#priceAsc) { Product.compareByPrice };
-          case (#priceDesc) {
-            func(a : Product, b : Product) : Order.Order {
-              switch (Product.compareByPrice(a, b)) {
-                case (#less) { #greater };
-                case (#greater) { #less };
-                case (#equal) { #equal };
-              };
-            };
-          };
-          case (#quantityDesc) {
-            func(a : Product, b : Product) : Order.Order {
-              switch (Product.compareByPrice(a, b)) {
-                case (#less) { #greater };
-                case (#greater) { #less };
-                case (#equal) { #equal };
-              };
-            };
-          };
-        };
-        result.sort(compareFunc);
-      };
-    };
-  };
-
-  public shared ({ caller }) func addToCart(productId : Text, quantity : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can add items to cart");
-    };
-    let cart = switch (carts.get(caller)) {
-      case (null) { List.empty<CartItem>() };
-      case (?existingCart) { existingCart };
-    };
-    cart.add({ productId; quantity });
-    carts.add(caller, cart);
-  };
-
-  public shared ({ caller }) func removeFromCart(productId : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can remove items from cart");
-    };
-    switch (carts.get(caller)) {
-      case (null) { };
-      case (?existingCart) {
-        let updatedCart = existingCart.filter(func(item : CartItem) : Bool { item.productId != productId });
-        carts.add(caller, updatedCart);
-      };
-    };
-  };
-
-  public query ({ caller }) func getCart() : async [CartItem] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can view their cart");
-    };
-    switch (carts.get(caller)) {
-      case (null) { [] };
-      case (?existingCart) { existingCart.toArray() };
-    };
-  };
-
-  public shared ({ caller }) func placeOrder(shippingAddress : Text) : async Text {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can place orders");
-    };
-    let cart = switch (carts.get(caller)) {
-      case (null) { Runtime.trap("Cart is empty") };
-      case (?existingCart) { existingCart };
-    };
-    let cartItemsArray = cart.toArray();
-    if (cartItemsArray.size() == 0) {
-      Runtime.trap("Cart is empty");
-    };
-
-    var total : Nat = 0;
-    for (item in cartItemsArray.vals()) {
-      switch (products.get(item.productId)) {
-        case (null) { };
-        case (?product) { total += (product.price * item.quantity) };
-      };
-    };
-
-    let orderId = "order_" # Time.now().toText();
-    let timestamp = Time.now();
-    let newOrder : Order = {
-      id = orderId;
-      customer = caller;
-      items = cartItemsArray;
-      total;
-      status = #pending;
-      shippingAddress;
-      timestamp;
-      paymentUrl = null;
-      paymentStatus = #pending;
-      paymentSessionId = null;
-      createdAt = timestamp;
-      updatedAt = timestamp;
-      statusHistory = [#pending];
-      paymentHistory = [#pending];
-    };
-    orders.add(orderId, newOrder);
-    carts.remove(caller);
-
-    createTransactionEntry(orderId, caller, cartItemsArray, total, timestamp);
-
-    orderId;
   };
 
   func createTransactionEntry(orderId : Text, buyer : Principal, items : [CartItem], totalNat : Nat, timestamp : Int) {
@@ -496,104 +533,9 @@ actor {
     transactions.add(orderId, entry);
   };
 
-  public query ({ caller }) func getOrder(orderId : Text) : async Order {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can view orders");
-    };
-    switch (orders.get(orderId)) {
-      case (null) { Runtime.trap("Order not found") };
-      case (?order) {
-        if (order.customer != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-          Runtime.trap("Unauthorized: You can only view your own orders");
-        };
-        order;
-      };
-    };
-  };
-
-  public query ({ caller }) func getMyOrders() : async [Order] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can view orders");
-    };
-    orders.values().toArray().filter(func(order : Order) : Bool { order.customer == caller });
-  };
-
-  public query ({ caller }) func getAllOrders() : async [Order] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can view all orders");
-    };
-    orders.values().toArray();
-  };
-
-  func initiatePayoutInternal(orderId : Text) : () {
-    switch (orders.get(orderId)) {
-      case (null) { Runtime.trap("Order not found") };
-      case (?order) {
-        if (order.items.size() == 0) {
-          Runtime.trap("Order has no items");
-        };
-        let firstItem = order.items[0];
-        let productId = firstItem.productId;
-        switch (products.get(productId)) {
-          case (null) { Runtime.trap("Product not found in order") };
-          case (?product) {
-            let vendorId = product.vendorId;
-            let timestamp = Time.now();
-            let commission = (order.total * commissionRate) / 100;
-            let netAmount = order.total - commission;
-            let payout : Payout = {
-              payoutId = "payout_" # timestamp.toText();
-              vendorId;
-              orderId;
-              grossAmount = order.total;
-              commissionAmount = commission;
-              netAmount;
-              status = #pending;
-              createdAt = timestamp;
-              updatedAt = timestamp;
-            };
-            payouts.add(payout.payoutId, payout);
-          };
-        };
-      };
-    };
-  };
-
-  public shared ({ caller }) func updateOrderStatus(orderId : Text, newStatus : OrderStatus) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update order status");
-    };
-    switch (orders.get(orderId)) {
-      case (null) { Runtime.trap("Order not found") };
-      case (?order) {
-        let timeNow = Time.now();
-        let updatedOrder : Order = {
-          id = order.id;
-          customer = order.customer;
-          items = order.items;
-          total = order.total;
-          status = newStatus;
-          shippingAddress = order.shippingAddress;
-          timestamp = order.timestamp;
-          paymentUrl = order.paymentUrl;
-          paymentStatus = order.paymentStatus;
-          paymentSessionId = order.paymentSessionId;
-          createdAt = order.createdAt;
-          updatedAt = timeNow;
-          statusHistory = order.statusHistory.concat([newStatus]);
-          paymentHistory = order.paymentHistory;
-        };
-        orders.add(orderId, updatedOrder);
-        switch (newStatus) {
-          case (#delivered) { initiatePayoutInternal(orderId) };
-          case (_) {};
-        };
-      };
-    };
-  };
-
   public query ({ caller }) func isCallerApproved() : async Bool {
-    AccessControl.hasPermission(accessControlState, caller, #admin) or UserApproval.isApproved(approvalState, caller);
+    AccessControl.hasPermission(accessControlState, caller, #admin)
+    or UserApproval.isApproved(approvalState, caller);
   };
 
   public shared ({ caller }) func requestApproval() : async () {
@@ -615,158 +557,5 @@ actor {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     UserApproval.listApprovals(approvalState);
-  };
-
-  public shared ({ caller }) func setCommissionRate(rate : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
-    };
-    if (rate > 100) {
-      Runtime.trap("Commission rate must be between 0 and 100");
-    };
-    commissionRate := rate;
-  };
-
-  public query ({ caller }) func getCommissionRate() : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can view the commission rate");
-    };
-    commissionRate;
-  };
-
-  public shared ({ caller }) func initiatePayout(orderId : Text) : async Text {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
-    };
-    switch (orders.get(orderId)) {
-      case (null) { Runtime.trap("Order not found") };
-      case (?order) {
-        if (order.items.size() == 0) {
-          Runtime.trap("Order has no items");
-        };
-        let firstItem = order.items[0];
-        let productId = firstItem.productId;
-        switch (products.get(productId)) {
-          case (null) { Runtime.trap("Product not found in order") };
-          case (?product) {
-            let vendorId = product.vendorId;
-            let timestamp = Time.now();
-            let commission = (order.total * commissionRate) / 100;
-            let netAmount = order.total - commission;
-            let payout : Payout = {
-              payoutId = "payout_" # timestamp.toText();
-              vendorId;
-              orderId;
-              grossAmount = order.total;
-              commissionAmount = commission;
-              netAmount;
-              status = #pending;
-              createdAt = timestamp;
-              updatedAt = timestamp;
-            };
-            payouts.add(payout.payoutId, payout);
-            return payout.payoutId;
-          };
-        };
-      };
-    };
-  };
-
-  public shared ({ caller }) func updatePayoutStatus(payoutId : Text, status : PayoutStatus) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
-    };
-    switch (payouts.get(payoutId)) {
-      case (null) { Runtime.trap("Payout not found") };
-      case (?payout) {
-        let updatedPayout : Payout = {
-          payoutId = payout.payoutId;
-          vendorId = payout.vendorId;
-          orderId = payout.orderId;
-          grossAmount = payout.grossAmount;
-          commissionAmount = payout.commissionAmount;
-          netAmount = payout.netAmount;
-          status;
-          createdAt = payout.createdAt;
-          updatedAt = Time.now();
-        };
-        payouts.add(payoutId, updatedPayout);
-      };
-    };
-  };
-
-  public query ({ caller }) func getPayout(payoutId : Text) : async ?Payout {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can access this function");
-    };
-    payouts.get(payoutId);
-  };
-
-  public query ({ caller }) func getPayoutsForVendor(vendorId : Text) : async [Payout] {
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    if (not isAdmin) {
-      if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-        Runtime.trap("Unauthorized: Only authenticated users can view vendor payouts");
-      };
-      switch (vendorProfiles.get(vendorId)) {
-        case (null) { Runtime.trap("Vendor profile not found") };
-        case (?vendorProfile) {
-          if (vendorProfile.createdBy != caller) {
-            Runtime.trap("Unauthorized: You can only view payouts for your own vendor profile");
-          };
-        };
-      };
-    };
-    payouts.values().toArray().filter(func(payout : Payout) : Bool { payout.vendorId == vendorId });
-  };
-
-  public query ({ caller }) func getAllPayouts() : async [Payout] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
-    };
-    payouts.values().toArray();
-  };
-
-  public query ({ caller }) func getTransaction(orderId : Text) : async ?TransactionEntry {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only authenticated users can view transactions");
-    };
-    switch (transactions.get(orderId)) {
-      case (null) { null };
-      case (?entry) {
-        if (entry.buyer != caller and entry.vendor != caller and not AccessControl.isAdmin(accessControlState, caller)) {
-          Runtime.trap("Unauthorized: You can only view your own transactions");
-        };
-        ?entry;
-      };
-    };
-  };
-
-  public query ({ caller }) func getTransactionsByBuyer(buyer : Principal) : async [TransactionEntry] {
-    if (caller != buyer and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: You can only view your own transactions");
-    };
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user)) and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only authenticated users can view transactions");
-    };
-    transactions.values().toArray().filter(
-      func(transaction : TransactionEntry) : Bool {
-        transaction.buyer == buyer;
-      }
-    );
-  };
-
-  public query ({ caller }) func getTransactionsByVendor(vendor : Principal) : async [TransactionEntry] {
-    if (caller != vendor and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: You can only view your own transactions");
-    };
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user)) and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only authenticated users can view transactions");
-    };
-    transactions.values().toArray().filter(
-      func(transaction : TransactionEntry) : Bool {
-        transaction.vendor == vendor;
-      }
-    );
   };
 };

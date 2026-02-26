@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useVendorTransactions } from '../../hooks/useQueries';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { Link } from '@tanstack/react-router';
+import type { TransactionEntry } from '../../types';
 import {
   Table,
   TableBody,
@@ -11,136 +9,95 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowUpDown, Receipt, PackageSearch } from 'lucide-react';
-import type { TransactionEntry } from '../../backend';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { ArrowUpDown, Receipt } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
 
-type SortDir = 'desc' | 'asc';
-
-function formatPrice(amount: bigint): string {
-  return `$${(Number(amount) / 100).toFixed(2)}`;
+function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
-function formatDate(ts: bigint): string {
-  const ms = Number(ts) / 1_000_000;
-  return new Date(ms).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function shortId(id: string): string {
-  return id.length > 18 ? `${id.slice(0, 10)}…${id.slice(-6)}` : id;
+function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString();
 }
 
 export default function VendorOrderHistory() {
-  const { data: transactions, isLoading, isError } = useVendorTransactions();
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const { data: transactions, isLoading } = useVendorTransactions();
+  const [sortAsc, setSortAsc] = useState(false);
+  const navigate = useNavigate();
 
-  const sorted = React.useMemo<TransactionEntry[]>(() => {
-    if (!transactions) return [];
-    return [...transactions].sort((a, b) => {
-      const diff = Number(a.timestamp) - Number(b.timestamp);
-      return sortDir === 'desc' ? -diff : diff;
-    });
-  }, [transactions, sortDir]);
+  const sorted = [...(transactions ?? [])].sort((a, b) => {
+    const diff = a.timestamp - b.timestamp;
+    return sortAsc ? diff : -diff;
+  });
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-12 w-full rounded" />
-        ))}
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
       </div>
     );
   }
 
-  if (isError) {
+  if (sorted.length === 0) {
     return (
-      <p className="font-sans text-sm text-destructive py-4">
-        Failed to load order history. Please try again.
+      <p className="text-center py-8 text-muted-foreground font-sans text-sm">
+        No order history yet.
       </p>
     );
   }
 
-  if (!sorted.length) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <PackageSearch className="w-12 h-12 text-muted-foreground opacity-20 mb-4" />
-        <p className="font-serif text-lg text-foreground mb-1">No orders yet</p>
-        <p className="font-sans text-sm text-muted-foreground">
-          Orders containing your products will appear here once customers complete purchases.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded border border-border">
       <Table>
         <TableHeader>
-          <TableRow className="border-border">
-            <TableHead className="font-sans text-xs uppercase tracking-wider text-muted-foreground">
-              Order ID
+          <TableRow>
+            <TableHead className="font-sans text-xs">Order ID</TableHead>
+            <TableHead
+              className="font-sans text-xs cursor-pointer select-none"
+              onClick={() => setSortAsc((v) => !v)}
+            >
+              <span className="flex items-center gap-1">
+                Date <ArrowUpDown className="w-3 h-3" />
+              </span>
             </TableHead>
-            <TableHead className="font-sans text-xs uppercase tracking-wider text-muted-foreground">
-              <button
-                onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
-                className="flex items-center gap-1 hover:text-foreground transition-colors"
-              >
-                Date
-                <ArrowUpDown className="w-3 h-3" />
-              </button>
-            </TableHead>
-            <TableHead className="font-sans text-xs uppercase tracking-wider text-muted-foreground">
-              Items
-            </TableHead>
-            <TableHead className="font-sans text-xs uppercase tracking-wider text-muted-foreground text-right">
-              Gross
-            </TableHead>
-            <TableHead className="font-sans text-xs uppercase tracking-wider text-muted-foreground text-right">
-              Commission
-            </TableHead>
-            <TableHead className="font-sans text-xs uppercase tracking-wider text-muted-foreground text-right">
-              Net Payout
-            </TableHead>
-            <TableHead className="font-sans text-xs uppercase tracking-wider text-muted-foreground text-right">
-              Receipt
-            </TableHead>
+            <TableHead className="font-sans text-xs">Items</TableHead>
+            <TableHead className="font-sans text-xs">Gross</TableHead>
+            <TableHead className="font-sans text-xs">Commission</TableHead>
+            <TableHead className="font-sans text-xs">Net Payout</TableHead>
+            <TableHead className="font-sans text-xs"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sorted.map((tx) => (
-            <TableRow key={tx.orderId} className="border-border hover:bg-muted/30 transition-colors">
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {shortId(tx.orderId)}
-              </TableCell>
-              <TableCell className="font-sans text-sm text-foreground whitespace-nowrap">
+            <TableRow key={tx.orderId}>
+              <TableCell className="font-mono text-xs">{tx.orderId.slice(0, 10)}…</TableCell>
+              <TableCell className="font-sans text-xs text-muted-foreground">
                 {formatDate(tx.timestamp)}
               </TableCell>
+              <TableCell className="font-sans text-sm">{tx.items.length}</TableCell>
+              <TableCell className="font-sans text-sm">{formatPrice(tx.totalAmount)}</TableCell>
               <TableCell className="font-sans text-sm text-muted-foreground">
-                {tx.items.length} item{tx.items.length !== 1 ? 's' : ''}
+                -{formatPrice(tx.commissionFee)}
               </TableCell>
-              <TableCell className="font-sans text-sm text-foreground text-right">
-                {formatPrice(tx.totalAmount)}
-              </TableCell>
-              <TableCell className="font-sans text-sm text-destructive text-right">
-                −{formatPrice(tx.commissionFee)}
-              </TableCell>
-              <TableCell className="font-sans text-sm font-medium text-gold text-right">
+              <TableCell className="font-sans text-sm font-medium text-gold">
                 {formatPrice(tx.netPayout)}
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell>
                 <Button
-                  asChild
-                  variant="ghost"
                   size="sm"
-                  className="text-xs text-muted-foreground hover:text-bronze"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() =>
+                    navigate({
+                      to: '/order/$orderId/receipt',
+                      params: { orderId: tx.orderId },
+                    })
+                  }
                 >
-                  <Link to="/order/$orderId/receipt" params={{ orderId: tx.orderId }}>
-                    <Receipt className="w-3 h-3 mr-1" />
-                    View
-                  </Link>
+                  <Receipt className="w-3 h-3 mr-1" />
+                  Receipt
                 </Button>
               </TableCell>
             </TableRow>

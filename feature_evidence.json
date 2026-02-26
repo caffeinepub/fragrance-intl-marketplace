@@ -2,41 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-create-an-auctions-listing-page-at-auctions-that-displays-all-active-auctions-in-a-grid-each-auction-card-shows-the-product-image-product-name-current-highest-bid-starting-price-number-of-bids-and-a-live-countdown-timer-that-decrements-in-real-time-to-the-auction-end-time-clicking-a-card-navigates-to-the-auction-detail-page-add-an-auctions-link-to-the-site-header-navigation",
-      "featureTitle": "Create an Auctions listing page at /auctions that displays all active auctions in a grid. Each auction card shows the product image, product name, current highest bid, starting price, number of bids, and a live countdown timer that decrements in real time to the auction end time. Clicking a card navigates to the auction detail page. Add an 'Auctions' link to the site header navigation.",
+      "featureId": "feature-integrate-the-storelistmanager-component-into-the-vendordashboard-page-render-the-list-of-the-vendor-s-stores-with-create-edit-and-toggle-active-controls-fully-functional-using-the-store-hooks",
+      "featureTitle": "Integrate the StoreListManager component into the VendorDashboard page: render the list of the vendor's stores with create, edit, and toggle-active controls fully functional using the store hooks.",
       "files": [
-        "frontend/src/App.tsx",
-        "frontend/src/components/auctions/AuctionCard.tsx",
-        "frontend/src/components/auctions/AuctionGrid.tsx",
-        "frontend/src/components/layout/Header.tsx",
-        "frontend/src/pages/Auctions.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-3"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-create-an-auction-detail-page-at-auctions-auctionid-showing-full-auction-info-product-details-current-highest-bid-bid-history-list-bidder-principal-truncated-amount-timestamp-and-a-live-countdown-timer-authenticated-users-can-submit-a-bid-via-an-input-field-and-place-bid-button-display-real-time-feedback-on-bid-success-or-failure-e-g-bid-too-low-auction-ended-show-the-winner-and-final-price-when-the-auction-has-ended",
-      "featureTitle": "Create an Auction Detail page at /auctions/$auctionId showing full auction info: product details, current highest bid, bid history list (bidder principal truncated, amount, timestamp), and a live countdown timer. Authenticated users can submit a bid via an input field and 'Place Bid' button. Display real-time feedback on bid success or failure (e.g., bid too low, auction ended). Show the winner and final price when the auction has ended.",
-      "files": [
-        "frontend/src/App.tsx",
-        "frontend/src/components/auctions/AuctionCountdown.tsx",
-        "frontend/src/components/auctions/BidForm.tsx",
-        "frontend/src/components/auctions/BidHistoryList.tsx",
-        "frontend/src/pages/AuctionDetail.tsx"
+        "frontend/src/pages/VendorDashboard.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -56,11 +25,9 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-add-auction-management-capabilities-to-the-vendor-dashboard-vendors-can-create-a-new-auction-by-selecting-one-of-their-products-setting-a-starting-price-and-specifying-auction-duration-hours-display-a-list-of-the-vendor-s-auctions-active-ended-cancelled-with-current-bid-end-time-and-an-option-to-cancel-active-auctions",
-      "featureTitle": "Add auction management capabilities to the Vendor Dashboard. Vendors can create a new auction by selecting one of their products, setting a starting price, and specifying auction duration (hours). Display a list of the vendor's auctions (active, ended, cancelled) with current bid, end time, and an option to cancel active auctions.",
+      "featureId": "feature-integrate-the-storeselector-component-into-the-vendordashboard-page-so-vendors-can-select-their-active-store-context-and-persist-the-selected-store-id-in-component-state-for-use-by-other-vendor-panels",
+      "featureTitle": "Integrate the StoreSelector component into the VendorDashboard page so vendors can select their active store context, and persist the selected store ID in component state for use by other vendor panels.",
       "files": [
-        "frontend/src/components/vendor/CreateAuctionForm.tsx",
-        "frontend/src/components/vendor/VendorAuctionsPanel.tsx",
         "frontend/src/pages/VendorDashboard.tsx"
       ],
       "components": [
@@ -77,132 +44,6 @@
       ],
       "testIds": [
         "REQ-5"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-auction-oversight-to-the-admin-dashboard-admins-can-view-all-auctions-active-ended-cancelled-in-a-table-with-vendor-product-current-bid-end-time-and-status-admins-can-cancel-any-active-auction-admins-can-manually-trigger-finalization-of-an-ended-auction-that-has-not-yet-been-finalized",
-      "featureTitle": "Add auction oversight to the Admin Dashboard. Admins can view all auctions (active, ended, cancelled) in a table with vendor, product, current bid, end time, and status. Admins can cancel any active auction. Admins can manually trigger finalization of an ended auction that has not yet been finalized.",
-      "files": [
-        "frontend/src/components/admin/AuctionManagementPanel.tsx",
-        "frontend/src/components/auctions/AuctionStatusBadge.tsx",
-        "frontend/src/pages/AdminDashboard.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-6"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-create-a-trade-offers-page-at-trade-offers-for-authenticated-users-display-two-tabs-incoming-offers-offers-where-the-user-is-the-receiver-and-outgoing-offers-offers-initiated-by-the-user-each-offer-card-shows-offered-items-requested-items-optional-cash-adjustment-status-badge-and-action-buttons-appropriate-to-role-receiver-can-accept-or-reject-initiator-can-cancel-either-party-can-counter-add-a-trade-offers-link-in-the-user-profile-dropdown-menu-or-header-navigation",
-      "featureTitle": "Create a Trade Offers page at /trade-offers for authenticated users. Display two tabs: 'Incoming Offers' (offers where the user is the receiver) and 'Outgoing Offers' (offers initiated by the user). Each offer card shows offered items, requested items, optional cash adjustment, status badge, and action buttons appropriate to role: receiver can Accept or Reject; initiator can Cancel; either party can Counter. Add a 'Trade Offers' link in the user profile dropdown menu or header navigation.",
-      "files": [
-        "frontend/src/App.tsx",
-        "frontend/src/components/layout/Header.tsx",
-        "frontend/src/components/trade/TradeOfferCard.tsx",
-        "frontend/src/components/trade/TradeOfferGrid.tsx",
-        "frontend/src/components/trade/TradeOfferStatusBadge.tsx",
-        "frontend/src/pages/TradeOffers.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-7"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-create-a-new-trade-offer-flow-accessible-from-the-product-listing-or-a-user-s-profile-allow-the-initiator-to-select-one-or-more-of-their-own-products-to-offer-specify-which-products-and-quantities-they-want-in-return-by-product-id-or-search-optionally-enter-a-cash-adjustment-amount-and-select-the-receiving-user-by-principal-or-username-submit-creates-the-trade-offer-and-shows-a-confirmation",
-      "featureTitle": "Create a 'New Trade Offer' flow accessible from the product listing or a user's profile. Allow the initiator to select one or more of their own products to offer, specify which products and quantities they want in return (by product ID or search), optionally enter a cash adjustment amount, and select the receiving user (by principal or username). Submit creates the trade offer and shows a confirmation.",
-      "files": [
-        "frontend/src/App.tsx",
-        "frontend/src/components/trade/NewTradeOfferForm.tsx",
-        "frontend/src/pages/NewTradeOffer.tsx",
-        "frontend/src/pages/TradeOffers.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-8"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-a-trade-offer-management-panel-to-the-admin-dashboard-admins-and-moderators-can-view-all-trade-offers-across-all-users-in-a-sortable-table-showing-offer-id-initiator-receiver-status-offered-items-count-requested-items-count-and-creation-date-admins-and-moderators-can-cancel-any-pending-offer",
-      "featureTitle": "Add a Trade Offer management panel to the Admin Dashboard. Admins and moderators can view all trade offers across all users in a sortable table showing offer ID, initiator, receiver, status, offered items count, requested items count, and creation date. Admins and moderators can cancel any pending offer.",
-      "files": [
-        "frontend/src/components/admin/TradeOfferManagementPanel.tsx",
-        "frontend/src/pages/AdminDashboard.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-9"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-react-query-hooks-in-usequeries-ts-for-all-new-auction-and-trade-offer-backend-functions-uselistactiveauctions-usegetauction-uselistauctionsbyvendor-uselistallauctions-admin-usecreateauction-useplacebid-usecancelauction-usefinalizeauction-uselisttradeoffersforuser-uselistalltradeoffers-admin-moderator-usecreatetradeoffer-useaccepttradeoffer-userejecttradeoffer-usecanceltradeoffer-and-usecountertradeoffer",
-      "featureTitle": "Add React Query hooks in useQueries.ts for all new auction and trade offer backend functions: useListActiveAuctions, useGetAuction, useListAuctionsByVendor, useListAllAuctions (admin), useCreateAuction, usePlaceBid, useCancelAuction, useFinalizeAuction, useListTradeOffersForUser, useListAllTradeOffers (admin/moderator), useCreateTradeOffer, useAcceptTradeOffer, useRejectTradeOffer, useCancelTradeOffer, and useCounterTradeOffer.",
-      "files": [
-        "frontend/src/hooks/useQueries.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-10"
       ],
       "confidence": "high"
     }

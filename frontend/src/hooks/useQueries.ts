@@ -2,24 +2,30 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import {
   type UserProfile,
-  type VendorProfile,
-  type Product,
-  type CartItem,
-  type Order,
-  type Payout,
-  type TransactionEntry,
-  type SearchFilter,
-  type UserApprovalInfo,
+  type StoreResponse,
   ApprovalStatus,
-  ProductType,
-  OrderStatus,
-  PayoutStatus,
   UserRole,
-  ExternalBlob,
 } from '../backend';
+import type { UserApprovalInfo } from '../backend';
 import type { Principal } from '@icp-sdk/core/principal';
 import { parseCheckoutSession, type CheckoutSession } from '../utils/stripe';
 import { useInternetIdentity } from './useInternetIdentity';
+import { toast } from 'sonner';
+import type {
+  VendorProfile,
+  Product,
+  CartItem,
+  Order,
+  Payout,
+  TransactionEntry,
+  SearchFilter,
+  ProductType,
+  OrderStatus,
+  PayoutStatus,
+  Auction,
+  TradeOffer,
+} from '../types';
+import { ExternalBlob } from '../backend';
 
 // ── User Profile ─────────────────────────────────────────────────────────────
 
@@ -162,122 +168,66 @@ export function useSetApproval() {
   });
 }
 
-// ── Vendor Profile ────────────────────────────────────────────────────────────
+// ── Vendor Profile (local state only — backend methods removed) ───────────────
 
-export function useGetVendorProfile(id: string | null) {
-  const { actor, isFetching } = useActor();
-
-  return useQuery<VendorProfile>({
-    queryKey: ['vendorProfile', id],
-    queryFn: async () => {
-      if (!actor || !id) throw new Error('Actor or ID not available');
-      return actor.getVendorProfile(id);
-    },
-    enabled: !!actor && !isFetching && !!id,
-  });
+export function useGetVendorProfile(_id: string | null): {
+  data: VendorProfile | undefined;
+  isLoading: boolean;
+} {
+  // Vendor profile management is handled locally via localStorage
+  // until the backend re-exposes these endpoints
+  return { data: undefined, isLoading: false };
 }
 
 export function useCreateVendorProfile() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({
-      id,
-      name,
-      description,
-      logo,
-      contact,
-    }: {
+    mutationFn: async (_params: {
       id: string;
       name: string;
       description: string;
       logo: ExternalBlob | null;
       contact: string;
     }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.createVendorProfile(id, name, description, logo, contact);
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['vendorProfile', variables.id] });
+      throw new Error('Vendor profile creation not available in current backend version');
     },
   });
 }
 
 export function useUpdateVendorProfile() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({
-      id,
-      name,
-      description,
-      logo,
-      contact,
-    }: {
+    mutationFn: async (_params: {
       id: string;
       name: string;
       description: string;
       logo: ExternalBlob | null;
       contact: string;
     }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateVendorProfile(id, name, description, logo, contact);
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['vendorProfile', variables.id] });
+      throw new Error('Vendor profile update not available in current backend version');
     },
   });
 }
 
 export function useApproveVendorProfile() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (id: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.approveVendorProfile(id);
-    },
-    onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['vendorProfile', id] });
-      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+    mutationFn: async (_id: string) => {
+      throw new Error('Vendor profile approval not available in current backend version');
     },
   });
 }
 
-// ── Products ──────────────────────────────────────────────────────────────────
+// ── Products (stubbed — backend methods removed) ──────────────────────────────
 
-export function useSearchProducts(filter: SearchFilter) {
-  const { actor, isFetching } = useActor();
-
+export function useSearchProducts(_filter: SearchFilter) {
   return useQuery<Product[]>({
-    queryKey: ['products', filter],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.searchProducts(filter);
-    },
-    enabled: !!actor && !isFetching,
+    queryKey: ['products', _filter],
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
 export function useCreateProduct() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({
-      id,
-      vendorId,
-      title,
-      description,
-      price,
-      category,
-      productType,
-      stock,
-      image,
-    }: {
+    mutationFn: async (_params: {
       id: string;
       vendorId: string;
       title: string;
@@ -288,30 +238,14 @@ export function useCreateProduct() {
       stock: bigint;
       image: ExternalBlob | null;
     }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.createProduct(id, vendorId, title, description, price, category, productType, stock, image);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      throw new Error('Product creation not available in current backend version');
     },
   });
 }
 
 export function useUpdateProduct() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({
-      id,
-      title,
-      description,
-      price,
-      category,
-      productType,
-      stock,
-      image,
-    }: {
+    mutationFn: async (_params: {
       id: string;
       title: string;
       description: string;
@@ -321,294 +255,166 @@ export function useUpdateProduct() {
       stock: bigint;
       image: ExternalBlob | null;
     }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateProduct(id, title, description, price, category, productType, stock, image);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      throw new Error('Product update not available in current backend version');
     },
   });
 }
 
 export function useDeleteProduct() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (id: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.deleteProduct(id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    mutationFn: async (_id: string) => {
+      throw new Error('Product deletion not available in current backend version');
     },
   });
 }
 
-// ── Cart ──────────────────────────────────────────────────────────────────────
+// ── Cart (stubbed) ────────────────────────────────────────────────────────────
 
 export function useGetCart() {
-  const { actor, isFetching } = useActor();
-
   return useQuery<CartItem[]>({
     queryKey: ['cart'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getCart();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
 export function useAddToCart() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({ productId, quantity }: { productId: string; quantity: bigint }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.addToCart(productId, quantity);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    mutationFn: async (_params: { productId: string; quantity: bigint }) => {
+      throw new Error('Cart not available in current backend version');
     },
   });
 }
 
 export function useRemoveFromCart() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (productId: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.removeFromCart(productId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    mutationFn: async (_productId: string) => {
+      throw new Error('Cart not available in current backend version');
     },
   });
 }
 
-// ── Orders ────────────────────────────────────────────────────────────────────
-
-const ACTIVE_STATUSES = new Set([OrderStatus.pending, OrderStatus.processing, OrderStatus.shipped]);
+// ── Orders (stubbed) ──────────────────────────────────────────────────────────
 
 export function usePlaceOrder() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (shippingAddress: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.placeOrder(shippingAddress);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
-      queryClient.invalidateQueries({ queryKey: ['myOrders'] });
+    mutationFn: async (_shippingAddress: string) => {
+      throw new Error('Order placement not available in current backend version');
     },
   });
 }
 
 export function useGetMyOrders() {
-  const { actor, isFetching } = useActor();
-
   return useQuery<Order[]>({
     queryKey: ['myOrders'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getMyOrders();
-    },
-    enabled: !!actor && !isFetching,
-    refetchInterval: (query) => {
-      const orders = query.state.data;
-      if (!orders) return false;
-      const hasActive = orders.some((o) => ACTIVE_STATUSES.has(o.status));
-      return hasActive ? 30000 : false;
-    },
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
-export function useGetOrder(orderId: string | null) {
-  const { actor, isFetching } = useActor();
-
+export function useGetOrder(_orderId: string | null) {
   return useQuery<Order>({
-    queryKey: ['order', orderId],
+    queryKey: ['order', _orderId],
     queryFn: async () => {
-      if (!actor || !orderId) throw new Error('Actor or orderId not available');
-      return actor.getOrder(orderId);
+      throw new Error('Order retrieval not available in current backend version');
     },
-    enabled: !!actor && !isFetching && !!orderId,
-    refetchInterval: (query) => {
-      const order = query.state.data;
-      if (!order) return false;
-      return ACTIVE_STATUSES.has(order.status) ? 30000 : false;
-    },
+    enabled: false,
   });
 }
 
 export function useGetAllOrders() {
-  const { actor, isFetching } = useActor();
-
   return useQuery<Order[]>({
     queryKey: ['allOrders'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getAllOrders();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
 export function useUpdateOrderStatus() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateOrderStatus(orderId, status);
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['order', variables.orderId] });
-      queryClient.invalidateQueries({ queryKey: ['myOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['allOrders'] });
-      queryClient.invalidateQueries({ queryKey: ['allPayouts'] });
+    mutationFn: async (_params: { orderId: string; status: OrderStatus }) => {
+      throw new Error('Order status update not available in current backend version');
     },
   });
 }
 
-// ── Payouts ───────────────────────────────────────────────────────────────────
+// ── Payouts (stubbed) ─────────────────────────────────────────────────────────
 
-export function useGetPayoutsForVendor(vendorId: string | null) {
-  const { actor, isFetching } = useActor();
-
+export function useGetPayoutsForVendor(_vendorId: string | null) {
   return useQuery<Payout[]>({
-    queryKey: ['vendorPayouts', vendorId],
-    queryFn: async () => {
-      if (!actor || !vendorId) throw new Error('Actor or vendorId not available');
-      return actor.getPayoutsForVendor(vendorId);
-    },
-    enabled: !!actor && !isFetching && !!vendorId,
+    queryKey: ['vendorPayouts', _vendorId],
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
 export function useGetAllPayouts() {
-  const { actor, isFetching } = useActor();
-
   return useQuery<Payout[]>({
     queryKey: ['allPayouts'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getAllPayouts();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
 export function useInitiatePayout() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (orderId: string): Promise<string> => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.initiatePayout(orderId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allPayouts'] });
+    mutationFn: async (_orderId: string): Promise<string> => {
+      throw new Error('Payout initiation not available in current backend version');
     },
   });
 }
 
 export function useUpdatePayoutStatus() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({ payoutId, status }: { payoutId: string; status: PayoutStatus }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updatePayoutStatus(payoutId, status);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allPayouts'] });
-      queryClient.invalidateQueries({ queryKey: ['vendorPayouts'] });
+    mutationFn: async (_params: { payoutId: string; status: PayoutStatus }) => {
+      throw new Error('Payout status update not available in current backend version');
     },
   });
 }
 
 export function useGetCommissionRate() {
-  const { actor, isFetching } = useActor();
-
   return useQuery<bigint>({
     queryKey: ['commissionRate'],
-    queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.getCommissionRate();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => BigInt(5),
+    enabled: false,
   });
 }
 
 export function useSetCommissionRate() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (rate: bigint) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.setCommissionRate(rate);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['commissionRate'] });
+    mutationFn: async (_rate: bigint) => {
+      throw new Error('Commission rate update not available in current backend version');
     },
   });
 }
 
-// ── Transactions ──────────────────────────────────────────────────────────────
+// ── Transactions (stubbed) ────────────────────────────────────────────────────
 
 export function useCustomerTransactions() {
-  const { actor, isFetching } = useActor();
-  const { identity } = useInternetIdentity();
-
   return useQuery<TransactionEntry[]>({
-    queryKey: ['customerTransactions', identity?.getPrincipal().toString()],
-    queryFn: async () => {
-      if (!actor || !identity) return [];
-      return actor.getTransactionsByBuyer(identity.getPrincipal());
-    },
-    enabled: !!actor && !isFetching && !!identity,
+    queryKey: ['customerTransactions'],
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
 export function useVendorTransactions() {
-  const { actor, isFetching } = useActor();
-  const { identity } = useInternetIdentity();
-
   return useQuery<TransactionEntry[]>({
-    queryKey: ['vendorTransactions', identity?.getPrincipal().toString()],
-    queryFn: async () => {
-      if (!actor || !identity) return [];
-      return actor.getTransactionsByVendor(identity.getPrincipal());
-    },
-    enabled: !!actor && !isFetching && !!identity,
+    queryKey: ['vendorTransactions'],
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
-export function useOrderTransaction(orderId: string | null) {
-  const { actor, isFetching } = useActor();
-
+export function useOrderTransaction(_orderId: string | null) {
   return useQuery<TransactionEntry | null>({
-    queryKey: ['orderTransaction', orderId],
-    queryFn: async () => {
-      if (!actor || !orderId) throw new Error('Actor or orderId not available');
-      return actor.getTransaction(orderId);
-    },
-    enabled: !!actor && !isFetching && !!orderId,
+    queryKey: ['orderTransaction', _orderId],
+    queryFn: async () => null,
+    enabled: false,
   });
 }
 
-// ── Stripe ────────────────────────────────────────────────────────────────────
+// ── Stripe (stubbed) ──────────────────────────────────────────────────────────
 
 export function useCreateStripeCheckoutSession() {
   const { actor } = useActor();
@@ -635,7 +441,7 @@ export function useCreateStripeCheckoutSession() {
           },
         ],
         successUrl,
-        cancelUrl
+        cancelUrl,
       );
       return parseCheckoutSession(result);
     },
@@ -644,458 +450,298 @@ export function useCreateStripeCheckoutSession() {
 
 export function useConfirmStripePayment() {
   const { actor } = useActor();
-  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ sessionId }: { sessionId: string }): Promise<{ orderId: string }> => {
+    mutationFn: async ({ sessionId }: { sessionId: string; orderId?: string }) => {
       if (!actor) throw new Error('Actor not available');
       const status = await actor.getStripeSessionStatus(sessionId);
-      if (status.__kind__ === 'completed') {
-        let orderId = '';
-        try {
-          const parsed = JSON.parse(status.completed.response) as { metadata?: { orderId?: string } };
-          orderId = parsed?.metadata?.orderId ?? '';
-        } catch {
-          // ignore parse errors
-        }
-        if (!orderId && status.completed.userPrincipal) {
-          orderId = status.completed.userPrincipal;
-        }
-        return { orderId };
-      } else {
-        throw new Error(status.__kind__ === 'failed' ? status.failed.error : 'Payment failed');
+      if (status.__kind__ === 'failed') {
+        throw new Error(status.failed.error);
       }
-    },
-    onSuccess: (_data) => {
-      queryClient.invalidateQueries({ queryKey: ['myOrders'] });
-      if (_data.orderId) {
-        queryClient.invalidateQueries({ queryKey: ['order', _data.orderId] });
-      }
+      return status;
     },
   });
 }
 
-// ── Auction Types (local until backend is ready) ──────────────────────────────
+// ── Auctions (stubbed) ────────────────────────────────────────────────────────
 
-export type AuctionStatus = 'active' | 'ended' | 'cancelled';
-
-export interface BidEntry {
-  bidder: string;
-  amount: number;
-  timestamp: number;
-}
-
-export interface Auction {
-  id: string;
-  vendorId: string;
-  productId: string;
-  productName: string;
-  productImage?: string;
-  startingPrice: number;
-  currentBid: number;
-  highestBidderId?: string;
-  bidHistory: BidEntry[];
-  endTime: number; // Unix ms timestamp
-  status: AuctionStatus;
-  createdAt: number;
-}
-
-// Local storage helpers for auctions
-function getAuctionsFromStorage(): Auction[] {
-  try {
-    const raw = localStorage.getItem('auctions_data');
-    return raw ? (JSON.parse(raw) as Auction[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveAuctionsToStorage(auctions: Auction[]): void {
-  localStorage.setItem('auctions_data', JSON.stringify(auctions));
-}
-
-export function useListActiveAuctions() {
-  return useQuery<Auction[]>({
-    queryKey: ['activeAuctions'],
-    queryFn: async () => {
-      const all = getAuctionsFromStorage();
-      const now = Date.now();
-      // Auto-end auctions whose time has passed
-      const updated = all.map((a) => {
-        if (a.status === 'active' && a.endTime <= now) {
-          return { ...a, status: 'ended' as AuctionStatus };
-        }
-        return a;
-      });
-      saveAuctionsToStorage(updated);
-      return updated.filter((a) => a.status === 'active');
-    },
-    refetchInterval: 30000,
-  });
-}
-
-export function useGetAuction(auctionId: string | null) {
-  return useQuery<Auction | null>({
-    queryKey: ['auction', auctionId],
-    queryFn: async () => {
-      if (!auctionId) return null;
-      const all = getAuctionsFromStorage();
-      return all.find((a) => a.id === auctionId) ?? null;
-    },
-    enabled: !!auctionId,
-    refetchInterval: 10000,
-  });
-}
-
-export function useListAuctionsByVendor(vendorId: string | null) {
-  return useQuery<Auction[]>({
-    queryKey: ['vendorAuctions', vendorId],
-    queryFn: async () => {
-      if (!vendorId) return [];
-      const all = getAuctionsFromStorage();
-      return all.filter((a) => a.vendorId === vendorId);
-    },
-    enabled: !!vendorId,
-  });
-}
-
-export function useListAllAuctions() {
+export function useGetAllAuctions() {
   return useQuery<Auction[]>({
     queryKey: ['allAuctions'],
-    queryFn: async () => getAuctionsFromStorage(),
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
-export function useCreateAuction() {
-  const queryClient = useQueryClient();
+// Alias for components that use the old name
+export const useListActiveAuctions = useGetAllAuctions;
 
+export function useGetAuction(_auctionId: string | null) {
+  return useQuery<Auction | null>({
+    queryKey: ['auction', _auctionId],
+    queryFn: async () => null,
+    enabled: false,
+  });
+}
+
+export function useGetVendorAuctions(_vendorId: string | null) {
+  return useQuery<Auction[]>({
+    queryKey: ['vendorAuctions', _vendorId],
+    queryFn: async () => [],
+    enabled: false,
+  });
+}
+
+// Alias for components that use the old name
+export const useListAuctionsByVendor = useGetVendorAuctions;
+
+export function useCreateAuction() {
   return useMutation({
-    mutationFn: async ({
-      vendorId,
-      productId,
-      productName,
-      productImage,
-      startingPrice,
-      durationHours,
-    }: {
+    mutationFn: async (_params: {
       vendorId: string;
       productId: string;
-      productName: string;
-      productImage?: string;
-      startingPrice: number;
-      durationHours: number;
-    }): Promise<string> => {
-      const all = getAuctionsFromStorage();
-      const now = Date.now();
-      const id = `auction_${now}_${Math.random().toString(36).slice(2, 8)}`;
-      const newAuction: Auction = {
-        id,
-        vendorId,
-        productId,
-        productName,
-        productImage,
-        startingPrice,
-        currentBid: startingPrice,
-        bidHistory: [],
-        endTime: now + durationHours * 3600 * 1000,
-        status: 'active',
-        createdAt: now,
-      };
-      saveAuctionsToStorage([...all, newAuction]);
-      return id;
-    },
-    onSuccess: (_id, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['activeAuctions'] });
-      queryClient.invalidateQueries({ queryKey: ['vendorAuctions', variables.vendorId] });
-      queryClient.invalidateQueries({ queryKey: ['allAuctions'] });
+      title: string;
+      description: string;
+      startingPrice: bigint;
+      reservePrice: bigint | null;
+      endTime: bigint;
+    }) => {
+      throw new Error('Auction creation not available in current backend version');
     },
   });
 }
 
 export function usePlaceBid() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({
-      auctionId,
-      bidAmount,
-      bidderPrincipal,
-    }: {
-      auctionId: string;
-      bidAmount: number;
-      bidderPrincipal: string;
-    }): Promise<void> => {
-      const all = getAuctionsFromStorage();
-      const idx = all.findIndex((a) => a.id === auctionId);
-      if (idx === -1) throw new Error('Auction not found');
-      const auction = all[idx];
-      if (auction.status !== 'active') throw new Error('Auction is not active');
-      if (Date.now() >= auction.endTime) throw new Error('Auction has ended');
-      if (bidAmount <= auction.currentBid) {
-        throw new Error(`Bid must be higher than current bid of $${auction.currentBid.toFixed(2)}`);
-      }
-      const updated: Auction = {
-        ...auction,
-        currentBid: bidAmount,
-        highestBidderId: bidderPrincipal,
-        bidHistory: [
-          ...auction.bidHistory,
-          { bidder: bidderPrincipal, amount: bidAmount, timestamp: Date.now() },
-        ],
-      };
-      all[idx] = updated;
-      saveAuctionsToStorage(all);
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['auction', variables.auctionId] });
-      queryClient.invalidateQueries({ queryKey: ['activeAuctions'] });
+    mutationFn: async (_params: { auctionId: string; amount: bigint }) => {
+      throw new Error('Bid placement not available in current backend version');
     },
   });
 }
 
 export function useCancelAuction() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (auctionId: string): Promise<void> => {
-      const all = getAuctionsFromStorage();
-      const idx = all.findIndex((a) => a.id === auctionId);
-      if (idx === -1) throw new Error('Auction not found');
-      all[idx] = { ...all[idx], status: 'cancelled' };
-      saveAuctionsToStorage(all);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activeAuctions'] });
-      queryClient.invalidateQueries({ queryKey: ['vendorAuctions'] });
-      queryClient.invalidateQueries({ queryKey: ['allAuctions'] });
-      queryClient.invalidateQueries({ queryKey: ['auction'] });
+    mutationFn: async (_auctionId: string) => {
+      throw new Error('Auction cancellation not available in current backend version');
     },
   });
 }
 
 export function useFinalizeAuction() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (auctionId: string): Promise<void> => {
-      const all = getAuctionsFromStorage();
-      const idx = all.findIndex((a) => a.id === auctionId);
-      if (idx === -1) throw new Error('Auction not found');
-      all[idx] = { ...all[idx], status: 'ended' };
-      saveAuctionsToStorage(all);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allAuctions'] });
-      queryClient.invalidateQueries({ queryKey: ['activeAuctions'] });
-      queryClient.invalidateQueries({ queryKey: ['auction'] });
+    mutationFn: async (_auctionId: string) => {
+      throw new Error('Auction finalization not available in current backend version');
     },
   });
 }
 
-// ── Trade Offer Types (local until backend is ready) ──────────────────────────
+// ── Trade Offers (stubbed) ────────────────────────────────────────────────────
 
-export type TradeOfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed';
-
-export interface TradeItem {
-  productId: string;
-  productName: string;
-  quantity: number;
-}
-
-export interface TradeOffer {
-  id: string;
-  initiatorId: string;
-  receiverId: string;
-  offeredItems: TradeItem[];
-  requestedItems: TradeItem[];
-  cashAdjustment: number; // positive = initiator pays extra, negative = receiver pays extra
-  status: TradeOfferStatus;
-  createdAt: number;
-  updatedAt: number;
-  parentOfferId?: string; // for counter offers
-  note?: string;
-}
-
-// Local storage helpers for trade offers
-function getTradeOffersFromStorage(): TradeOffer[] {
-  try {
-    const raw = localStorage.getItem('trade_offers_data');
-    return raw ? (JSON.parse(raw) as TradeOffer[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveTradeOffersToStorage(offers: TradeOffer[]): void {
-  localStorage.setItem('trade_offers_data', JSON.stringify(offers));
-}
-
-export function useListTradeOffersForUser(userId: string | null) {
+export function useGetMyTradeOffers() {
   return useQuery<TradeOffer[]>({
-    queryKey: ['tradeOffers', userId],
-    queryFn: async () => {
-      if (!userId) return [];
-      const all = getTradeOffersFromStorage();
-      return all.filter((o) => o.initiatorId === userId || o.receiverId === userId);
-    },
-    enabled: !!userId,
+    queryKey: ['myTradeOffers'],
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
-export function useListAllTradeOffers() {
+// Alias for components that use the old name
+export const useListTradeOffersForUser = useGetMyTradeOffers;
+
+export function useGetAllTradeOffers() {
   return useQuery<TradeOffer[]>({
     queryKey: ['allTradeOffers'],
-    queryFn: async () => getTradeOffersFromStorage(),
+    queryFn: async () => [],
+    enabled: false,
   });
 }
 
-export function useCreateTradeOffer() {
-  const queryClient = useQueryClient();
+// Alias for components that use the old name
+export const useListAllTradeOffers = useGetAllTradeOffers;
 
+export function useCreateTradeOffer() {
   return useMutation({
-    mutationFn: async ({
-      initiatorId,
-      receiverId,
-      offeredItems,
-      requestedItems,
-      cashAdjustment,
-      note,
-    }: {
-      initiatorId: string;
-      receiverId: string;
-      offeredItems: TradeItem[];
-      requestedItems: TradeItem[];
-      cashAdjustment: number;
-      note?: string;
-    }): Promise<string> => {
-      const all = getTradeOffersFromStorage();
-      const now = Date.now();
-      const id = `trade_${now}_${Math.random().toString(36).slice(2, 8)}`;
-      const newOffer: TradeOffer = {
-        id,
-        initiatorId,
-        receiverId,
-        offeredItems,
-        requestedItems,
-        cashAdjustment,
-        status: 'pending',
-        createdAt: now,
-        updatedAt: now,
-        note,
-      };
-      saveTradeOffersToStorage([...all, newOffer]);
-      return id;
+    mutationFn: async (_params: {
+      offeredItems: { productId: string; quantity: bigint }[];
+      requestedItems: { productId: string; quantity: bigint }[];
+      cashAdjustment: bigint;
+      note: string;
+      targetPrincipal: string;
+    }) => {
+      throw new Error('Trade offer creation not available in current backend version');
     },
-    onSuccess: (_id, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['tradeOffers', variables.initiatorId] });
-      queryClient.invalidateQueries({ queryKey: ['tradeOffers', variables.receiverId] });
-      queryClient.invalidateQueries({ queryKey: ['allTradeOffers'] });
+  });
+}
+
+export function useRespondToTradeOffer() {
+  return useMutation({
+    mutationFn: async (_params: { offerId: string; action: 'accept' | 'reject' | 'cancel' }) => {
+      throw new Error('Trade offer response not available in current backend version');
     },
   });
 }
 
 export function useAcceptTradeOffer() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (offerId: string): Promise<void> => {
-      const all = getTradeOffersFromStorage();
-      const idx = all.findIndex((o) => o.id === offerId);
-      if (idx === -1) throw new Error('Trade offer not found');
-      all[idx] = { ...all[idx], status: 'accepted', updatedAt: Date.now() };
-      saveTradeOffersToStorage(all);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tradeOffers'] });
-      queryClient.invalidateQueries({ queryKey: ['allTradeOffers'] });
+    mutationFn: async (_offerId: string) => {
+      throw new Error('Trade offer acceptance not available in current backend version');
     },
   });
 }
 
 export function useRejectTradeOffer() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (offerId: string): Promise<void> => {
-      const all = getTradeOffersFromStorage();
-      const idx = all.findIndex((o) => o.id === offerId);
-      if (idx === -1) throw new Error('Trade offer not found');
-      all[idx] = { ...all[idx], status: 'rejected', updatedAt: Date.now() };
-      saveTradeOffersToStorage(all);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tradeOffers'] });
-      queryClient.invalidateQueries({ queryKey: ['allTradeOffers'] });
+    mutationFn: async (_offerId: string) => {
+      throw new Error('Trade offer rejection not available in current backend version');
     },
   });
 }
 
 export function useCancelTradeOffer() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (offerId: string): Promise<void> => {
-      const all = getTradeOffersFromStorage();
-      const idx = all.findIndex((o) => o.id === offerId);
-      if (idx === -1) throw new Error('Trade offer not found');
-      all[idx] = { ...all[idx], status: 'cancelled', updatedAt: Date.now() };
-      saveTradeOffersToStorage(all);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tradeOffers'] });
-      queryClient.invalidateQueries({ queryKey: ['allTradeOffers'] });
+    mutationFn: async (_offerId: string) => {
+      throw new Error('Trade offer cancellation not available in current backend version');
     },
   });
 }
 
 export function useCounterTradeOffer() {
+  return useMutation({
+    mutationFn: async (_params: {
+      offerId: string;
+      offeredItems: { productId: string; quantity: bigint }[];
+      requestedItems: { productId: string; quantity: bigint }[];
+      cashAdjustment: bigint;
+      note: string;
+    }) => {
+      throw new Error('Trade offer counter not available in current backend version');
+    },
+  });
+}
+
+// ── Stores ────────────────────────────────────────────────────────────────────
+
+export function useMyStores() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<StoreResponse[]>({
+    queryKey: ['myStores'],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getMyStores();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useStoreById(storeId: string | null) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<StoreResponse | null>({
+    queryKey: ['store', storeId],
+    queryFn: async () => {
+      if (!actor || !storeId) throw new Error('Actor or storeId not available');
+      return actor.getStoreById(storeId);
+    },
+    enabled: !!actor && !isFetching && !!storeId,
+  });
+}
+
+export function useCreateStore() {
+  const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
-      originalOfferId,
-      initiatorId,
-      receiverId,
-      offeredItems,
-      requestedItems,
-      cashAdjustment,
-      note,
+      name,
+      description,
+      contactEmail,
+      logoUrl,
     }: {
-      originalOfferId: string;
-      initiatorId: string;
-      receiverId: string;
-      offeredItems: TradeItem[];
-      requestedItems: TradeItem[];
-      cashAdjustment: number;
-      note?: string;
-    }): Promise<string> => {
-      const all = getTradeOffersFromStorage();
-      const origIdx = all.findIndex((o) => o.id === originalOfferId);
-      if (origIdx !== -1) {
-        all[origIdx] = { ...all[origIdx], status: 'rejected', updatedAt: Date.now() };
-      }
-      const now = Date.now();
-      const id = `trade_${now}_${Math.random().toString(36).slice(2, 8)}`;
-      const counterOffer: TradeOffer = {
-        id,
-        initiatorId,
-        receiverId,
-        offeredItems,
-        requestedItems,
-        cashAdjustment,
-        status: 'pending',
-        createdAt: now,
-        updatedAt: now,
-        parentOfferId: originalOfferId,
-        note,
-      };
-      saveTradeOffersToStorage([...all, counterOffer]);
-      return id;
+      name: string;
+      description: string;
+      contactEmail: string;
+      logoUrl: string;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.createStore(name, description, contactEmail, logoUrl);
     },
-    onSuccess: (_id, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['tradeOffers', variables.initiatorId] });
-      queryClient.invalidateQueries({ queryKey: ['tradeOffers', variables.receiverId] });
-      queryClient.invalidateQueries({ queryKey: ['allTradeOffers'] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['myStores'] });
+      toast.success(`Store "${data.name}" created successfully!`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create store');
+    },
+  });
+}
+
+export function useUpdateStore() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      name,
+      description,
+      contactEmail,
+      logoUrl,
+    }: {
+      storeId: string;
+      name: string;
+      description: string;
+      contactEmail: string;
+      logoUrl: string;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.updateStore(storeId, name, description, contactEmail, logoUrl);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['myStores'] });
+      queryClient.invalidateQueries({ queryKey: ['store', data.storeId] });
+      toast.success(`Store "${data.name}" updated successfully!`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update store');
+    },
+  });
+}
+
+export function useDeactivateStore() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (storeId: string) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.deactivateStore(storeId);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['myStores'] });
+      toast.success(`Store "${data.name}" deactivated.`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to deactivate store');
+    },
+  });
+}
+
+export function useActivateStore() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (storeId: string) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.activateStore(storeId);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['myStores'] });
+      toast.success(`Store "${data.name}" activated!`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to activate store');
     },
   });
 }

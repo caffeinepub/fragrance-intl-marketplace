@@ -1,66 +1,62 @@
 import React from 'react';
-import { type CartItem, type Product } from '../../backend';
+import type { CartItem, Product } from '../../types';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Link } from '@tanstack/react-router';
-import { ArrowRight, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 
 interface CartSummaryProps {
-  cartItems: CartItem[];
+  items: CartItem[];
   products: Product[];
+  onCheckout: () => void;
+  isLoading?: boolean;
 }
 
-export default function CartSummary({ cartItems, products }: CartSummaryProps) {
-  const subtotal = cartItems.reduce((sum, item) => {
-    const product = products.find((p) => p.id === item.productId);
-    if (!product) return sum;
-    return sum + Number(product.price) * Number(item.quantity);
+function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+export default function CartSummary({ items, products, onCheckout, isLoading }: CartSummaryProps) {
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  const subtotal = items.reduce((sum, item) => {
+    const product = productMap.get(item.productId);
+    return sum + (product ? product.price * item.quantity : 0);
   }, 0);
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-
   return (
-    <div className="bg-card border border-border rounded p-6 space-y-4 sticky top-4">
-      <h3 className="font-serif text-xl text-foreground">Order Summary</h3>
-
-      <Separator className="bg-border" />
+    <div className="bg-card border border-border rounded p-5 space-y-4">
+      <h3 className="font-serif text-lg text-foreground">Order Summary</h3>
 
       <div className="space-y-2">
-        <div className="flex justify-between text-sm font-sans">
-          <span className="text-muted-foreground">
-            Subtotal ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})
-          </span>
-          <span className="text-foreground font-medium">{formatPrice(subtotal)}</span>
-        </div>
-        <div className="flex justify-between text-sm font-sans">
-          <span className="text-muted-foreground">Shipping</span>
-          <span className="text-muted-foreground">Calculated at checkout</span>
-        </div>
+        {items.map((item) => {
+          const product = productMap.get(item.productId);
+          return (
+            <div key={item.productId} className="flex justify-between text-sm font-sans">
+              <span className="text-muted-foreground truncate max-w-[180px]">
+                {product?.title ?? item.productId} × {item.quantity}
+              </span>
+              <span className="text-foreground shrink-0">
+                {product ? formatPrice(product.price * item.quantity) : '—'}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      <Separator className="bg-border" />
+      <Separator />
 
-      <div className="flex justify-between font-serif text-lg">
+      <div className="flex justify-between font-sans text-base font-medium">
         <span className="text-foreground">Total</span>
         <span className="text-gold">{formatPrice(subtotal)}</span>
       </div>
 
       <Button
-        asChild
-        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11"
-        disabled={cartItems.length === 0}
+        onClick={onCheckout}
+        disabled={isLoading || items.length === 0}
+        className="w-full font-sans bg-gold text-background hover:bg-gold/90"
       >
-        <Link to="/checkout">
-          Proceed to Checkout
-          <ArrowRight className="w-4 h-4 ml-2" />
-        </Link>
-      </Button>
-
-      <Button asChild variant="outline" className="w-full border-gold/30 text-bronze hover:bg-gold/5">
-        <Link to="/products">
-          <ShoppingBag className="w-4 h-4 mr-2" />
-          Continue Shopping
-        </Link>
+        <ShoppingBag className="w-4 h-4 mr-2" />
+        Proceed to Checkout
       </Button>
     </div>
   );

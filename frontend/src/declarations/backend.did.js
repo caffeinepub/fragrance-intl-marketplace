@@ -19,6 +19,15 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'success' : IDL.Opt(IDL.Bool),
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
+export const StoreResponse = IDL.Record({
+  'storeId' : IDL.Text,
+  'name' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'description' : IDL.Text,
+  'isActive' : IDL.Bool,
+  'logoUrl' : IDL.Text,
+  'contactEmail' : IDL.Text,
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
@@ -30,63 +39,6 @@ export const ShoppingItem = IDL.Record({
   'quantity' : IDL.Nat,
   'priceInCents' : IDL.Nat,
   'productDescription' : IDL.Text,
-});
-export const ProductType = IDL.Variant({
-  'service' : IDL.Null,
-  'physical' : IDL.Null,
-  'digital' : IDL.Null,
-});
-export const ExternalBlob = IDL.Vec(IDL.Nat8);
-export const OrderStatus = IDL.Variant({
-  'shipped' : IDL.Null,
-  'canceled' : IDL.Null,
-  'pending' : IDL.Null,
-  'delivered' : IDL.Null,
-  'processing' : IDL.Null,
-});
-export const PaymentStatus = IDL.Variant({
-  'pending' : IDL.Null,
-  'initiated' : IDL.Null,
-  'completed' : IDL.Null,
-  'awaiting_payment' : IDL.Null,
-  'failed' : IDL.Null,
-});
-export const CartItem = IDL.Record({
-  'productId' : IDL.Text,
-  'quantity' : IDL.Nat,
-});
-export const Order = IDL.Record({
-  'id' : IDL.Text,
-  'status' : OrderStatus,
-  'total' : IDL.Nat,
-  'paymentStatus' : PaymentStatus,
-  'paymentSessionId' : IDL.Opt(IDL.Text),
-  'paymentHistory' : IDL.Vec(PaymentStatus),
-  'customer' : IDL.Principal,
-  'createdAt' : IDL.Int,
-  'statusHistory' : IDL.Vec(OrderStatus),
-  'updatedAt' : IDL.Int,
-  'timestamp' : IDL.Int,
-  'shippingAddress' : IDL.Text,
-  'items' : IDL.Vec(CartItem),
-  'paymentUrl' : IDL.Opt(IDL.Text),
-});
-export const PayoutStatus = IDL.Variant({
-  'pending' : IDL.Null,
-  'completed' : IDL.Null,
-  'processing' : IDL.Null,
-  'failed' : IDL.Null,
-});
-export const Payout = IDL.Record({
-  'status' : PayoutStatus,
-  'netAmount' : IDL.Nat,
-  'createdAt' : IDL.Int,
-  'grossAmount' : IDL.Nat,
-  'payoutId' : IDL.Text,
-  'orderId' : IDL.Text,
-  'updatedAt' : IDL.Int,
-  'vendorId' : IDL.Text,
-  'commissionAmount' : IDL.Nat,
 });
 export const UserProfile = IDL.Record({
   'name' : IDL.Text,
@@ -100,25 +52,6 @@ export const StripeSessionStatus = IDL.Variant({
   }),
   'failed' : IDL.Record({ 'error' : IDL.Text }),
 });
-export const TransactionEntry = IDL.Record({
-  'netPayout' : IDL.Int,
-  'commissionFee' : IDL.Int,
-  'orderId' : IDL.Text,
-  'totalAmount' : IDL.Int,
-  'vendor' : IDL.Principal,
-  'timestamp' : IDL.Int,
-  'buyer' : IDL.Principal,
-  'items' : IDL.Vec(CartItem),
-});
-export const VendorProfile = IDL.Record({
-  'id' : IDL.Text,
-  'contact' : IDL.Text,
-  'logo' : IDL.Opt(IDL.Principal),
-  'name' : IDL.Text,
-  'createdBy' : IDL.Principal,
-  'description' : IDL.Text,
-  'approved' : IDL.Bool,
-});
 export const ApprovalStatus = IDL.Variant({
   'pending' : IDL.Null,
   'approved' : IDL.Null,
@@ -127,34 +60,6 @@ export const ApprovalStatus = IDL.Variant({
 export const UserApprovalInfo = IDL.Record({
   'status' : ApprovalStatus,
   'principal' : IDL.Principal,
-});
-export const SearchFilter = IDL.Record({
-  'sortBy' : IDL.Opt(
-    IDL.Variant({
-      'quantityDesc' : IDL.Null,
-      'priceDesc' : IDL.Null,
-      'priceAsc' : IDL.Null,
-    })
-  ),
-  'productType' : IDL.Opt(ProductType),
-  'category' : IDL.Opt(IDL.Text),
-  'keyword' : IDL.Opt(IDL.Text),
-});
-export const ProductStatus = IDL.Variant({
-  'active' : IDL.Null,
-  'inactive' : IDL.Null,
-});
-export const Product = IDL.Record({
-  'id' : IDL.Text,
-  'status' : ProductStatus,
-  'title' : IDL.Text,
-  'description' : IDL.Text,
-  'productType' : ProductType,
-  'stock' : IDL.Nat,
-  'vendorId' : IDL.Text,
-  'category' : IDL.Text,
-  'image' : IDL.Opt(IDL.Principal),
-  'price' : IDL.Nat,
 });
 export const StripeConfiguration = IDL.Record({
   'allowedCountries' : IDL.Vec(IDL.Text),
@@ -207,104 +112,51 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-  'addToCart' : IDL.Func([IDL.Text, IDL.Nat], [], []),
-  'approveVendorProfile' : IDL.Func([IDL.Text], [], []),
+  'activateStore' : IDL.Func([IDL.Text], [StoreResponse], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'createCheckoutSession' : IDL.Func(
       [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
       [IDL.Text],
       [],
     ),
-  'createProduct' : IDL.Func(
-      [
-        IDL.Text,
-        IDL.Text,
-        IDL.Text,
-        IDL.Text,
-        IDL.Nat,
-        IDL.Text,
-        ProductType,
-        IDL.Nat,
-        IDL.Opt(ExternalBlob),
-      ],
-      [],
+  'createStore' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [StoreResponse],
       [],
     ),
-  'createVendorProfile' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(ExternalBlob), IDL.Text],
-      [],
-      [],
-    ),
-  'deleteProduct' : IDL.Func([IDL.Text], [], []),
-  'getAllOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
-  'getAllPayouts' : IDL.Func([], [IDL.Vec(Payout)], ['query']),
+  'deactivateStore' : IDL.Func([IDL.Text], [StoreResponse], []),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-  'getCart' : IDL.Func([], [IDL.Vec(CartItem)], ['query']),
-  'getCommissionRate' : IDL.Func([], [IDL.Nat], ['query']),
-  'getMyOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
-  'getOrder' : IDL.Func([IDL.Text], [Order], ['query']),
-  'getPayout' : IDL.Func([IDL.Text], [IDL.Opt(Payout)], ['query']),
-  'getPayoutsForVendor' : IDL.Func([IDL.Text], [IDL.Vec(Payout)], ['query']),
+  'getMyStores' : IDL.Func([], [IDL.Vec(StoreResponse)], ['query']),
+  'getStoreById' : IDL.Func([IDL.Text], [IDL.Opt(StoreResponse)], ['query']),
+  'getStoresByVendor' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Vec(StoreResponse)],
+      ['query'],
+    ),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
-  'getTransaction' : IDL.Func(
-      [IDL.Text],
-      [IDL.Opt(TransactionEntry)],
-      ['query'],
-    ),
-  'getTransactionsByBuyer' : IDL.Func(
-      [IDL.Principal],
-      [IDL.Vec(TransactionEntry)],
-      ['query'],
-    ),
-  'getTransactionsByVendor' : IDL.Func(
-      [IDL.Principal],
-      [IDL.Vec(TransactionEntry)],
-      ['query'],
-    ),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
-  'getVendorProfile' : IDL.Func([IDL.Text], [VendorProfile], ['query']),
-  'initiatePayout' : IDL.Func([IDL.Text], [IDL.Text], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
-  'placeOrder' : IDL.Func([IDL.Text], [IDL.Text], []),
-  'removeFromCart' : IDL.Func([IDL.Text], [], []),
   'requestApproval' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-  'searchProducts' : IDL.Func([SearchFilter], [IDL.Vec(Product)], ['query']),
   'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
-  'setCommissionRate' : IDL.Func([IDL.Nat], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+  'toggleStoreActive' : IDL.Func([IDL.Text], [StoreResponse], []),
   'transform' : IDL.Func(
       [TransformationInput],
       [TransformationOutput],
       ['query'],
     ),
-  'updateOrderStatus' : IDL.Func([IDL.Text, OrderStatus], [], []),
-  'updatePayoutStatus' : IDL.Func([IDL.Text, PayoutStatus], [], []),
-  'updateProduct' : IDL.Func(
-      [
-        IDL.Text,
-        IDL.Text,
-        IDL.Text,
-        IDL.Nat,
-        IDL.Text,
-        ProductType,
-        IDL.Nat,
-        IDL.Opt(ExternalBlob),
-      ],
-      [],
-      [],
-    ),
-  'updateVendorProfile' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(ExternalBlob), IDL.Text],
-      [],
+  'updateStore' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [StoreResponse],
       [],
     ),
 });
@@ -323,6 +175,15 @@ export const idlFactory = ({ IDL }) => {
     'success' : IDL.Opt(IDL.Bool),
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
+  const StoreResponse = IDL.Record({
+    'storeId' : IDL.Text,
+    'name' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'description' : IDL.Text,
+    'isActive' : IDL.Bool,
+    'logoUrl' : IDL.Text,
+    'contactEmail' : IDL.Text,
+  });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
@@ -334,60 +195,6 @@ export const idlFactory = ({ IDL }) => {
     'quantity' : IDL.Nat,
     'priceInCents' : IDL.Nat,
     'productDescription' : IDL.Text,
-  });
-  const ProductType = IDL.Variant({
-    'service' : IDL.Null,
-    'physical' : IDL.Null,
-    'digital' : IDL.Null,
-  });
-  const ExternalBlob = IDL.Vec(IDL.Nat8);
-  const OrderStatus = IDL.Variant({
-    'shipped' : IDL.Null,
-    'canceled' : IDL.Null,
-    'pending' : IDL.Null,
-    'delivered' : IDL.Null,
-    'processing' : IDL.Null,
-  });
-  const PaymentStatus = IDL.Variant({
-    'pending' : IDL.Null,
-    'initiated' : IDL.Null,
-    'completed' : IDL.Null,
-    'awaiting_payment' : IDL.Null,
-    'failed' : IDL.Null,
-  });
-  const CartItem = IDL.Record({ 'productId' : IDL.Text, 'quantity' : IDL.Nat });
-  const Order = IDL.Record({
-    'id' : IDL.Text,
-    'status' : OrderStatus,
-    'total' : IDL.Nat,
-    'paymentStatus' : PaymentStatus,
-    'paymentSessionId' : IDL.Opt(IDL.Text),
-    'paymentHistory' : IDL.Vec(PaymentStatus),
-    'customer' : IDL.Principal,
-    'createdAt' : IDL.Int,
-    'statusHistory' : IDL.Vec(OrderStatus),
-    'updatedAt' : IDL.Int,
-    'timestamp' : IDL.Int,
-    'shippingAddress' : IDL.Text,
-    'items' : IDL.Vec(CartItem),
-    'paymentUrl' : IDL.Opt(IDL.Text),
-  });
-  const PayoutStatus = IDL.Variant({
-    'pending' : IDL.Null,
-    'completed' : IDL.Null,
-    'processing' : IDL.Null,
-    'failed' : IDL.Null,
-  });
-  const Payout = IDL.Record({
-    'status' : PayoutStatus,
-    'netAmount' : IDL.Nat,
-    'createdAt' : IDL.Int,
-    'grossAmount' : IDL.Nat,
-    'payoutId' : IDL.Text,
-    'orderId' : IDL.Text,
-    'updatedAt' : IDL.Int,
-    'vendorId' : IDL.Text,
-    'commissionAmount' : IDL.Nat,
   });
   const UserProfile = IDL.Record({
     'name' : IDL.Text,
@@ -401,25 +208,6 @@ export const idlFactory = ({ IDL }) => {
     }),
     'failed' : IDL.Record({ 'error' : IDL.Text }),
   });
-  const TransactionEntry = IDL.Record({
-    'netPayout' : IDL.Int,
-    'commissionFee' : IDL.Int,
-    'orderId' : IDL.Text,
-    'totalAmount' : IDL.Int,
-    'vendor' : IDL.Principal,
-    'timestamp' : IDL.Int,
-    'buyer' : IDL.Principal,
-    'items' : IDL.Vec(CartItem),
-  });
-  const VendorProfile = IDL.Record({
-    'id' : IDL.Text,
-    'contact' : IDL.Text,
-    'logo' : IDL.Opt(IDL.Principal),
-    'name' : IDL.Text,
-    'createdBy' : IDL.Principal,
-    'description' : IDL.Text,
-    'approved' : IDL.Bool,
-  });
   const ApprovalStatus = IDL.Variant({
     'pending' : IDL.Null,
     'approved' : IDL.Null,
@@ -428,34 +216,6 @@ export const idlFactory = ({ IDL }) => {
   const UserApprovalInfo = IDL.Record({
     'status' : ApprovalStatus,
     'principal' : IDL.Principal,
-  });
-  const SearchFilter = IDL.Record({
-    'sortBy' : IDL.Opt(
-      IDL.Variant({
-        'quantityDesc' : IDL.Null,
-        'priceDesc' : IDL.Null,
-        'priceAsc' : IDL.Null,
-      })
-    ),
-    'productType' : IDL.Opt(ProductType),
-    'category' : IDL.Opt(IDL.Text),
-    'keyword' : IDL.Opt(IDL.Text),
-  });
-  const ProductStatus = IDL.Variant({
-    'active' : IDL.Null,
-    'inactive' : IDL.Null,
-  });
-  const Product = IDL.Record({
-    'id' : IDL.Text,
-    'status' : ProductStatus,
-    'title' : IDL.Text,
-    'description' : IDL.Text,
-    'productType' : ProductType,
-    'stock' : IDL.Nat,
-    'vendorId' : IDL.Text,
-    'category' : IDL.Text,
-    'image' : IDL.Opt(IDL.Principal),
-    'price' : IDL.Nat,
   });
   const StripeConfiguration = IDL.Record({
     'allowedCountries' : IDL.Vec(IDL.Text),
@@ -505,104 +265,51 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-    'addToCart' : IDL.Func([IDL.Text, IDL.Nat], [], []),
-    'approveVendorProfile' : IDL.Func([IDL.Text], [], []),
+    'activateStore' : IDL.Func([IDL.Text], [StoreResponse], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createCheckoutSession' : IDL.Func(
         [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
         [IDL.Text],
         [],
       ),
-    'createProduct' : IDL.Func(
-        [
-          IDL.Text,
-          IDL.Text,
-          IDL.Text,
-          IDL.Text,
-          IDL.Nat,
-          IDL.Text,
-          ProductType,
-          IDL.Nat,
-          IDL.Opt(ExternalBlob),
-        ],
-        [],
+    'createStore' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [StoreResponse],
         [],
       ),
-    'createVendorProfile' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(ExternalBlob), IDL.Text],
-        [],
-        [],
-      ),
-    'deleteProduct' : IDL.Func([IDL.Text], [], []),
-    'getAllOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
-    'getAllPayouts' : IDL.Func([], [IDL.Vec(Payout)], ['query']),
+    'deactivateStore' : IDL.Func([IDL.Text], [StoreResponse], []),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-    'getCart' : IDL.Func([], [IDL.Vec(CartItem)], ['query']),
-    'getCommissionRate' : IDL.Func([], [IDL.Nat], ['query']),
-    'getMyOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
-    'getOrder' : IDL.Func([IDL.Text], [Order], ['query']),
-    'getPayout' : IDL.Func([IDL.Text], [IDL.Opt(Payout)], ['query']),
-    'getPayoutsForVendor' : IDL.Func([IDL.Text], [IDL.Vec(Payout)], ['query']),
+    'getMyStores' : IDL.Func([], [IDL.Vec(StoreResponse)], ['query']),
+    'getStoreById' : IDL.Func([IDL.Text], [IDL.Opt(StoreResponse)], ['query']),
+    'getStoresByVendor' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(StoreResponse)],
+        ['query'],
+      ),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
-    'getTransaction' : IDL.Func(
-        [IDL.Text],
-        [IDL.Opt(TransactionEntry)],
-        ['query'],
-      ),
-    'getTransactionsByBuyer' : IDL.Func(
-        [IDL.Principal],
-        [IDL.Vec(TransactionEntry)],
-        ['query'],
-      ),
-    'getTransactionsByVendor' : IDL.Func(
-        [IDL.Principal],
-        [IDL.Vec(TransactionEntry)],
-        ['query'],
-      ),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
-    'getVendorProfile' : IDL.Func([IDL.Text], [VendorProfile], ['query']),
-    'initiatePayout' : IDL.Func([IDL.Text], [IDL.Text], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
-    'placeOrder' : IDL.Func([IDL.Text], [IDL.Text], []),
-    'removeFromCart' : IDL.Func([IDL.Text], [], []),
     'requestApproval' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-    'searchProducts' : IDL.Func([SearchFilter], [IDL.Vec(Product)], ['query']),
     'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
-    'setCommissionRate' : IDL.Func([IDL.Nat], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+    'toggleStoreActive' : IDL.Func([IDL.Text], [StoreResponse], []),
     'transform' : IDL.Func(
         [TransformationInput],
         [TransformationOutput],
         ['query'],
       ),
-    'updateOrderStatus' : IDL.Func([IDL.Text, OrderStatus], [], []),
-    'updatePayoutStatus' : IDL.Func([IDL.Text, PayoutStatus], [], []),
-    'updateProduct' : IDL.Func(
-        [
-          IDL.Text,
-          IDL.Text,
-          IDL.Text,
-          IDL.Nat,
-          IDL.Text,
-          ProductType,
-          IDL.Nat,
-          IDL.Opt(ExternalBlob),
-        ],
-        [],
-        [],
-      ),
-    'updateVendorProfile' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(ExternalBlob), IDL.Text],
-        [],
+    'updateStore' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [StoreResponse],
         [],
       ),
   });

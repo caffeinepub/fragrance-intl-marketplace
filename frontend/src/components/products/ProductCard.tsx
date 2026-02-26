@@ -1,113 +1,85 @@
 import React from 'react';
-import { type Product, ProductType } from '../../backend';
+import type { Product } from '../../types';
+import { ProductType } from '../../types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAddToCart } from '../../hooks/useQueries';
-import { useInternetIdentity } from '../../hooks/useInternetIdentity';
-import { ShoppingBag, Loader2, Sparkles, Package, Wrench } from 'lucide-react';
+import { ShoppingCart, Loader2, Zap, Package, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
-import { Link } from '@tanstack/react-router';
 
 interface ProductCardProps {
   product: Product;
 }
 
-const typeIcons = {
-  [ProductType.physical]: Package,
-  [ProductType.digital]: Sparkles,
-  [ProductType.service]: Wrench,
-};
+function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
-const typeLabels = {
-  [ProductType.physical]: 'Physical',
-  [ProductType.digital]: 'Digital',
-  [ProductType.service]: 'Service',
+const typeIcons: Record<string, React.ReactNode> = {
+  [ProductType.digital]: <Zap className="w-3 h-3" />,
+  [ProductType.physical]: <Package className="w-3 h-3" />,
+  [ProductType.service]: <Wrench className="w-3 h-3" />,
 };
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { identity } = useInternetIdentity();
   const addToCart = useAddToCart();
-  const TypeIcon = typeIcons[product.productType];
 
-  const formatPrice = (price: bigint) => `$${(Number(price) / 100).toFixed(2)}`;
-
-  const handleAddToCart = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!identity) {
-      toast.error('Please sign in to add items to cart');
-      return;
-    }
+  const handleAddToCart = async () => {
     try {
       await addToCart.mutateAsync({ productId: product.id, quantity: BigInt(1) });
       toast.success(`${product.title} added to cart`);
-    } catch {
-      toast.error('Failed to add to cart');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add to cart');
     }
   };
 
   return (
-    <div className="group bg-card border border-border rounded overflow-hidden hover:border-gold/40 hover:shadow-luxury transition-all duration-300 animate-fade-in">
-      <div className="relative aspect-square overflow-hidden bg-muted">
-        <img
-          src="/assets/generated/product-placeholder.dim_600x600.png"
-          alt={product.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
-        <div className="absolute top-2 right-2">
-          <Badge
-            variant="secondary"
-            className="text-xs bg-card/90 backdrop-blur-sm border-gold/20 text-bronze"
-          >
-            <TypeIcon className="w-3 h-3 mr-1" />
-            {typeLabels[product.productType]}
-          </Badge>
-        </div>
+    <div className="bg-card border border-border rounded overflow-hidden flex flex-col">
+      <div className="aspect-square bg-muted overflow-hidden">
+        {product.image ? (
+          <img
+            src={product.image}
+            alt={product.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <img
+            src="/assets/generated/product-placeholder.dim_600x600.png"
+            alt={product.title}
+            className="w-full h-full object-cover opacity-50"
+          />
+        )}
       </div>
 
-      <div className="p-4 space-y-3">
-        <div>
-          <p className="text-xs text-muted-foreground font-sans uppercase tracking-wider mb-1">
-            {product.category}
-          </p>
-          <h3 className="font-serif text-base text-foreground leading-snug line-clamp-2">
-            {product.title}
-          </h3>
+      <div className="p-4 flex flex-col gap-2 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-serif text-base text-foreground line-clamp-2">{product.title}</h3>
+          <Badge variant="outline" className="text-[10px] shrink-0 flex items-center gap-1 border-border">
+            {typeIcons[product.productType]}
+            {product.productType}
+          </Badge>
         </div>
 
         {product.description && (
-          <p className="text-xs text-muted-foreground font-sans line-clamp-2 leading-relaxed">
-            {product.description}
-          </p>
+          <p className="font-sans text-xs text-muted-foreground line-clamp-2">{product.description}</p>
         )}
 
-        <div className="flex items-center justify-between pt-1">
-          <span className="font-serif text-lg text-gold font-medium">
-            {formatPrice(product.price)}
-          </span>
-          {product.productType === ProductType.physical && (
-            <span className="text-xs text-muted-foreground font-sans">
-              {Number(product.stock) > 0 ? `${Number(product.stock)} in stock` : 'Out of stock'}
-            </span>
-          )}
+        <div className="flex items-center justify-between mt-auto pt-2">
+          <span className="font-serif text-lg text-gold">{formatPrice(product.price)}</span>
+          <Button
+            size="sm"
+            onClick={handleAddToCart}
+            disabled={addToCart.isPending || product.stock === 0}
+            className="font-sans text-xs bg-gold text-background hover:bg-gold/90"
+          >
+            {addToCart.isPending ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <ShoppingCart className="w-3 h-3 mr-1" />
+            )}
+            {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+          </Button>
         </div>
-
-        <Button
-          onClick={handleAddToCart}
-          disabled={
-            addToCart.isPending ||
-            (product.productType === ProductType.physical && Number(product.stock) === 0)
-          }
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm h-9"
-        >
-          {addToCart.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              <ShoppingBag className="w-4 h-4 mr-2" />
-              Add to Cart
-            </>
-          )}
-        </Button>
       </div>
     </div>
   );

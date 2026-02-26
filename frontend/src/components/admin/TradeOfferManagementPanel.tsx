@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { useListAllTradeOffers, useCancelTradeOffer, type TradeOffer } from '../../hooks/useQueries';
-import TradeOfferStatusBadge from '../trade/TradeOfferStatusBadge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useGetAllTradeOffers, useCancelTradeOffer } from '../../hooks/useQueries';
+import type { TradeOffer } from '../../types';
 import {
   Table,
   TableBody,
@@ -11,181 +9,121 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { ArrowLeftRight, Ban, ArrowUpDown } from 'lucide-react';
-import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ArrowLeftRight, XCircle, ArrowUpDown } from 'lucide-react';
 
 type SortField = 'status' | 'createdAt';
-type SortDir = 'asc' | 'desc';
 
-function truncatePrincipal(p: string): string {
-  if (p.length <= 16) return p;
-  return `${p.slice(0, 8)}…${p.slice(-4)}`;
+function TradeStatusBadge({ status }: { status: string }) {
+  const variants: Record<string, string> = {
+    pending: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+    accepted: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    rejected: 'bg-red-500/15 text-red-600 border-red-500/30',
+    canceled: 'bg-gray-500/15 text-gray-600 border-gray-500/30',
+    countered: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+  };
+  return (
+    <Badge variant="outline" className={`text-xs capitalize ${variants[status] ?? 'bg-muted text-muted-foreground'}`}>
+      {status}
+    </Badge>
+  );
 }
 
 export default function TradeOfferManagementPanel() {
-  const { data: offers, isLoading, refetch } = useListAllTradeOffers();
+  const { data: offers, isLoading } = useGetAllTradeOffers();
   const cancelOffer = useCancelTradeOffer();
   const [sortField, setSortField] = useState<SortField>('createdAt');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [sortAsc, setSortAsc] = useState(false);
 
   const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortDir('desc');
-    }
-  };
-
-  const handleCancel = async (offerId: string) => {
-    try {
-      await cancelOffer.mutateAsync(offerId);
-      toast.success('Trade offer cancelled.');
-      refetch();
-    } catch {
-      toast.error('Failed to cancel trade offer.');
-    }
+    if (sortField === field) setSortAsc((v) => !v);
+    else { setSortField(field); setSortAsc(false); }
   };
 
   const sorted = [...(offers ?? [])].sort((a, b) => {
     let cmp = 0;
-    if (sortField === 'createdAt') {
-      cmp = a.createdAt - b.createdAt;
-    } else if (sortField === 'status') {
-      cmp = a.status.localeCompare(b.status);
-    }
-    return sortDir === 'asc' ? cmp : -cmp;
+    if (sortField === 'status') cmp = a.status.localeCompare(b.status);
+    else cmp = a.createdAt - b.createdAt;
+    return sortAsc ? cmp : -cmp;
   });
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  if (sorted.length === 0) {
-    return (
-      <div className="flex flex-col items-center py-10 text-center">
-        <ArrowLeftRight className="w-10 h-10 text-muted-foreground opacity-30 mb-3" />
-        <p className="font-sans text-sm text-muted-foreground">No trade offers found.</p>
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="font-sans text-xs">Offer ID</TableHead>
-            <TableHead className="font-sans text-xs">Initiator</TableHead>
-            <TableHead className="font-sans text-xs">Receiver</TableHead>
-            <TableHead className="font-sans text-xs">Items</TableHead>
-            <TableHead
-              className="font-sans text-xs cursor-pointer select-none"
-              onClick={() => toggleSort('status')}
-            >
-              <span className="flex items-center gap-1">
-                Status
-                <ArrowUpDown className="w-3 h-3" />
-              </span>
-            </TableHead>
-            <TableHead
-              className="font-sans text-xs cursor-pointer select-none"
-              onClick={() => toggleSort('createdAt')}
-            >
-              <span className="flex items-center gap-1">
-                Created
-                <ArrowUpDown className="w-3 h-3" />
-              </span>
-            </TableHead>
-            <TableHead className="font-sans text-xs">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sorted.map((offer: TradeOffer) => (
-            <TableRow key={offer.id}>
-              <TableCell>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {offer.id.slice(0, 16)}…
-                </span>
-              </TableCell>
-              <TableCell>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {truncatePrincipal(offer.initiatorId)}
-                </span>
-              </TableCell>
-              <TableCell>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {truncatePrincipal(offer.receiverId)}
-                </span>
-              </TableCell>
-              <TableCell>
-                <span className="font-sans text-xs text-muted-foreground">
-                  {offer.offeredItems.length} offered / {offer.requestedItems.length} requested
-                </span>
-              </TableCell>
-              <TableCell>
-                <TradeOfferStatusBadge status={offer.status} />
-              </TableCell>
-              <TableCell>
-                <span className="font-sans text-xs text-muted-foreground">
-                  {new Date(offer.createdAt).toLocaleDateString()}
-                </span>
-              </TableCell>
-              <TableCell>
-                {offer.status === 'pending' && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <ArrowLeftRight className="w-5 h-5 text-gold" />
+        <h3 className="font-serif text-lg text-foreground">All Trade Offers</h3>
+        <Badge variant="secondary" className="ml-auto">{sorted.length}</Badge>
+      </div>
+
+      {sorted.length === 0 ? (
+        <p className="text-center py-8 text-muted-foreground font-sans text-sm">No trade offers found.</p>
+      ) : (
+        <div className="overflow-x-auto rounded border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-sans text-xs">Offer ID</TableHead>
+                <TableHead className="font-sans text-xs">From</TableHead>
+                <TableHead className="font-sans text-xs">To</TableHead>
+                <TableHead
+                  className="font-sans text-xs cursor-pointer select-none"
+                  onClick={() => toggleSort('status')}
+                >
+                  <span className="flex items-center gap-1">Status <ArrowUpDown className="w-3 h-3" /></span>
+                </TableHead>
+                <TableHead
+                  className="font-sans text-xs cursor-pointer select-none"
+                  onClick={() => toggleSort('createdAt')}
+                >
+                  <span className="flex items-center gap-1">Date <ArrowUpDown className="w-3 h-3" /></span>
+                </TableHead>
+                <TableHead className="font-sans text-xs">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((offer) => (
+                <TableRow key={offer.offerId}>
+                  <TableCell className="font-mono text-xs">{offer.offerId.slice(0, 10)}…</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {offer.offeredBy.slice(0, 8)}…
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {offer.targetPrincipal.slice(0, 8)}…
+                  </TableCell>
+                  <TableCell><TradeStatusBadge status={offer.status} /></TableCell>
+                  <TableCell className="font-sans text-xs text-muted-foreground">
+                    {new Date(offer.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {offer.status === 'pending' && (
                       <Button
-                        variant="outline"
                         size="sm"
-                        className="border-destructive/30 text-destructive hover:bg-destructive/5 h-7 text-xs"
+                        variant="outline"
+                        className="h-7 px-2 text-xs border-red-500/30 text-red-600 hover:bg-red-500/10"
+                        onClick={() => cancelOffer.mutate(offer.offerId)}
                         disabled={cancelOffer.isPending}
                       >
-                        <Ban className="w-3 h-3 mr-1" />
+                        <XCircle className="w-3 h-3 mr-1" />
                         Cancel
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Cancel Trade Offer?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Cancel this pending trade offer? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>No</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleCancel(offer.id)}
-                          className="bg-destructive hover:bg-destructive/90"
-                        >
-                          Cancel Offer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,29 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useIsCallerApproved, useGetCallerUserProfile, useGetVendorProfile } from '../hooks/useQueries';
+import { useIsCallerApproved, useGetCallerUserProfile, useMyStores } from '../hooks/useQueries';
 import AccessDenied from '../components/common/AccessDenied';
-import VendorProfileEditor from '../components/vendor/VendorProfileEditor';
 import VendorPayoutsPanel from '../components/vendor/VendorPayoutsPanel';
 import VendorOrderHistory from '../components/vendor/VendorOrderHistory';
 import VendorAuctionsPanel from '../components/vendor/VendorAuctionsPanel';
+import StoreSelector from '../components/vendor/StoreSelector';
+import StoreListManager from '../components/vendor/StoreListManager';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { Store, Package, ArrowRight } from 'lucide-react';
-import { useInternetIdentity as useII } from '../hooks/useInternetIdentity';
+import { Store, Package, ArrowRight, Layers } from 'lucide-react';
 
 function VendorDashboardContent() {
-  const { identity } = useII();
+  const { identity } = useInternetIdentity();
   const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
+  const { data: stores, isLoading: storesLoading } = useMyStores();
 
   const principalStr = identity?.getPrincipal().toString() || '';
   const storedVendorId = typeof window !== 'undefined'
     ? localStorage.getItem(`vendorId_${principalStr}`)
     : null;
 
-  const { data: vendorProfile, isLoading: vendorLoading } = useGetVendorProfile(storedVendorId);
+  // Track selected store; default to first store once loaded
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
 
-  if (profileLoading || vendorLoading) {
+  useEffect(() => {
+    if (!selectedStoreId && stores && stores.length > 0) {
+      setSelectedStoreId(stores[0].storeId);
+    }
+  }, [stores, selectedStoreId]);
+
+  if (profileLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-48" />
@@ -32,33 +40,28 @@ function VendorDashboardContent() {
     );
   }
 
-  if (!vendorProfile) {
-    return (
-      <div className="text-center py-12">
-        <Store className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-30" />
-        <h3 className="font-serif text-xl text-foreground mb-2">No Store Found</h3>
-        <p className="text-muted-foreground font-sans mb-4 text-sm">
-          We couldn't find your store profile. Please register as a vendor first.
-        </p>
-        <Button asChild variant="outline" className="border-gold/30 text-bronze hover:bg-gold/5">
-          <Link to="/vendor/register">Register Store</Link>
-        </Button>
-      </div>
-    );
-  }
+  const displayName = userProfile?.name || principalStr.slice(0, 12) + '…';
 
   return (
     <div className="space-y-8">
+      {/* Store Selector */}
+      {!storesLoading && stores && stores.length > 0 && (
+        <div className="flex items-center gap-4 bg-card border border-border rounded px-4 py-3">
+          <StoreSelector
+            selectedStoreId={selectedStoreId}
+            onStoreChange={setSelectedStoreId}
+          />
+        </div>
+      )}
+
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-card border border-border rounded p-5">
           <div className="flex items-center gap-3 mb-2">
             <Store className="w-5 h-5 text-gold" />
-            <span className="font-sans text-sm text-muted-foreground">Store Status</span>
+            <span className="font-sans text-sm text-muted-foreground">Vendor Account</span>
           </div>
-          <p className="font-serif text-xl text-foreground">
-            {vendorProfile.approved ? 'Active' : 'Pending Approval'}
-          </p>
+          <p className="font-serif text-xl text-foreground truncate">{displayName}</p>
         </div>
         <div className="bg-card border border-border rounded p-5">
           <div className="flex items-center gap-3 mb-2">
@@ -74,10 +77,16 @@ function VendorDashboardContent() {
         </div>
       </div>
 
-      {/* Profile Editor */}
+      {/* My Stores */}
       <div className="bg-card border border-border rounded p-6">
-        <h2 className="font-serif text-xl text-foreground mb-5">Store Profile</h2>
-        <VendorProfileEditor profile={vendorProfile} />
+        <div className="flex items-center gap-2 mb-2">
+          <Layers className="w-5 h-5 text-gold" />
+          <h2 className="font-serif text-xl text-foreground">My Stores</h2>
+        </div>
+        <p className="font-sans text-sm text-muted-foreground mb-5">
+          Manage all your stores under this vendor account. You can have up to 5 stores.
+        </p>
+        <StoreListManager />
       </div>
 
       {/* Auctions */}

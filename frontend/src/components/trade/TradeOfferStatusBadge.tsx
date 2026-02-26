@@ -1,40 +1,26 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import type { TradeOfferStatus } from '../../hooks/useQueries';
+import type { TradeOfferStatus } from '../../types';
 
 interface TradeOfferStatusBadgeProps {
-  status: TradeOfferStatus;
+  status: TradeOfferStatus | string;
 }
 
 export default function TradeOfferStatusBadge({ status }: TradeOfferStatusBadgeProps) {
-  const config: Record<TradeOfferStatus, { label: string; className: string }> = {
-    pending: {
-      label: 'Pending',
-      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800',
-    },
-    accepted: {
-      label: 'Accepted',
-      className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
-    },
-    rejected: {
-      label: 'Rejected',
-      className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800',
-    },
-    cancelled: {
-      label: 'Cancelled',
-      className: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400 border-gray-200 dark:border-gray-700',
-    },
-    completed: {
-      label: 'Completed',
-      className: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800',
-    },
+  const variants: Record<string, string> = {
+    pending: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+    accepted: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    rejected: 'bg-red-500/15 text-red-600 border-red-500/30',
+    canceled: 'bg-gray-500/15 text-gray-500 border-gray-500/30',
+    countered: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
   };
 
-  const { label, className } = config[status] ?? config.pending;
-
   return (
-    <Badge variant="outline" className={`font-sans text-xs font-medium ${className}`}>
-      {label}
+    <Badge
+      variant="outline"
+      className={`text-xs capitalize ${variants[status] ?? 'bg-muted text-muted-foreground'}`}
+    >
+      {status}
     </Badge>
   );
 }
