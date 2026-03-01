@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
-import {
-  useGetAllPayouts,
-  useUpdatePayoutStatus,
-  useGetCommissionRate,
-  useSetCommissionRate,
-} from '../../hooks/useQueries';
-import { PayoutStatus } from '../../types';
-import { PayoutStatusBadge } from './PayoutStatusBadge';
+import { useGetAllPayouts, useUpdatePayoutStatus, useGetCommissionRate, useSetCommissionRate } from '../../hooks/useQueries';
+import type { LocalPayout } from '../../hooks/useQueries';
+import PayoutStatusBadge from './PayoutStatusBadge';
 import {
   Table,
   TableBody,
@@ -25,46 +20,34 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { DollarSign, Loader2 } from 'lucide-react';
 
-const ALL_PAYOUT_STATUSES = Object.values(PayoutStatus);
+const PAYOUT_STATUSES = ['pending', 'processing', 'completed', 'failed'];
+
+function formatPrice(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
 
 export default function PayoutManagementPanel() {
-  const { data: payouts, isLoading } = useGetAllPayouts();
+  const { data: payouts = [], isLoading } = useGetAllPayouts();
   const updateStatus = useUpdatePayoutStatus();
-  const { data: commissionRate } = useGetCommissionRate();
+  const { data: commissionRate = 5 } = useGetCommissionRate();
   const setCommissionRate = useSetCommissionRate();
+  const [rateInput, setRateInput] = useState<string>('');
 
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [rateInput, setRateInput] = useState('');
-  const [savingRate, setSavingRate] = useState(false);
-
-  const handleStatusChange = async (payoutId: string, status: PayoutStatus) => {
-    setUpdatingId(payoutId);
-    try {
-      await updateStatus.mutateAsync({ payoutId, status });
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  const handleSaveRate = async () => {
-    const rate = parseInt(rateInput, 10);
-    if (isNaN(rate) || rate < 0 || rate > 100) return;
-    setSavingRate(true);
-    try {
-      await setCommissionRate.mutateAsync(BigInt(rate));
+  const handleSaveRate = () => {
+    const parsed = parseFloat(rateInput);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+      setCommissionRate.mutate(parsed);
       setRateInput('');
-    } finally {
-      setSavingRate(false);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
       </div>
     );
   }
@@ -72,91 +55,68 @@ export default function PayoutManagementPanel() {
   return (
     <div className="space-y-6">
       {/* Commission Rate Editor */}
-      <div className="bg-card border border-border rounded p-4 flex items-center gap-4 flex-wrap">
-        <DollarSign className="w-5 h-5 text-gold shrink-0" />
+      <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg border border-border">
         <div>
-          <p className="font-sans text-sm text-foreground font-medium">Commission Rate</p>
-          <p className="font-sans text-xs text-muted-foreground">
-            Current: {commissionRate != null ? `${commissionRate}%` : '—'}
-          </p>
+          <p className="text-sm font-medium text-foreground">Commission Rate</p>
+          <p className="text-xs text-muted-foreground">Current: {commissionRate}%</p>
         </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            value={rateInput}
-            onChange={(e) => setRateInput(e.target.value)}
-            placeholder="New rate %"
-            className="w-28 h-8 text-xs font-sans border-border"
-          />
-          <Button
-            size="sm"
-            onClick={handleSaveRate}
-            disabled={savingRate || !rateInput}
-            className="h-8 font-sans text-xs bg-gold text-background hover:bg-gold/90"
-          >
-            {savingRate && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-            Save
-          </Button>
-        </div>
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          step={0.1}
+          placeholder={String(commissionRate)}
+          value={rateInput}
+          onChange={(e) => setRateInput(e.target.value)}
+          className="w-24"
+        />
+        <Button size="sm" onClick={handleSaveRate} disabled={setCommissionRate.isPending}>
+          Save
+        </Button>
       </div>
 
-      {/* Payouts Table */}
-      <div className="flex items-center gap-2">
-        <h3 className="font-serif text-lg text-foreground">All Payouts</h3>
-        <Badge variant="secondary" className="ml-auto">{(payouts ?? []).length}</Badge>
-      </div>
-
-      {(payouts ?? []).length === 0 ? (
-        <p className="text-center py-8 text-muted-foreground font-sans text-sm">No payouts found.</p>
+      {payouts.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">No payouts found.</div>
       ) : (
-        <div className="overflow-x-auto rounded border border-border">
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="font-sans text-xs">Payout ID</TableHead>
-                <TableHead className="font-sans text-xs">Vendor</TableHead>
-                <TableHead className="font-sans text-xs">Order ID</TableHead>
-                <TableHead className="font-sans text-xs">Gross</TableHead>
-                <TableHead className="font-sans text-xs">Commission</TableHead>
-                <TableHead className="font-sans text-xs">Net</TableHead>
-                <TableHead className="font-sans text-xs">Status</TableHead>
-                <TableHead className="font-sans text-xs">Update</TableHead>
+                <TableHead>Payout ID</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Gross</TableHead>
+                <TableHead>Commission</TableHead>
+                <TableHead>Net</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Update</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(payouts ?? []).map((payout) => (
+              {payouts.map((payout: LocalPayout) => (
                 <TableRow key={payout.payoutId}>
                   <TableCell className="font-mono text-xs">{payout.payoutId.slice(0, 10)}…</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {payout.vendorId.slice(0, 8)}…
+                  <TableCell className="font-mono text-xs">{String(payout.vendorId).slice(0, 10)}…</TableCell>
+                  <TableCell className="font-mono text-xs">{payout.orderId.slice(0, 10)}…</TableCell>
+                  <TableCell>{formatPrice(payout.grossAmount)}</TableCell>
+                  <TableCell>{formatPrice(payout.commissionAmount)}</TableCell>
+                  <TableCell>{formatPrice(payout.netAmount)}</TableCell>
+                  <TableCell>
+                    <PayoutStatusBadge status={payout.status} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {payout.orderId.slice(0, 8)}…
-                  </TableCell>
-                  <TableCell className="font-sans text-sm">
-                    ${(payout.grossAmount / 100).toFixed(2)}
-                  </TableCell>
-                  <TableCell className="font-sans text-sm text-muted-foreground">
-                    ${(payout.commissionAmount / 100).toFixed(2)}
-                  </TableCell>
-                  <TableCell className="font-sans text-sm font-medium">
-                    ${(payout.netAmount / 100).toFixed(2)}
-                  </TableCell>
-                  <TableCell><PayoutStatusBadge status={payout.status} /></TableCell>
                   <TableCell>
                     <Select
                       value={payout.status}
-                      onValueChange={(v) => handleStatusChange(payout.payoutId, v as PayoutStatus)}
-                      disabled={updatingId === payout.payoutId}
+                      onValueChange={(val) =>
+                        updateStatus.mutate({ payoutId: payout.payoutId, status: val })
+                      }
                     >
-                      <SelectTrigger className="w-32 h-7 text-xs font-sans border-border">
+                      <SelectTrigger className="w-36">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {ALL_PAYOUT_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>
+                        {PAYOUT_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

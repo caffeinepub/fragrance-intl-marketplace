@@ -13,12 +13,12 @@ import MixinAuthorization "authorization/MixinAuthorization";
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import AccessControl "authorization/access-control";
-import Migration "migration";
+
 import UserApproval "user-approval/approval";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
 
-(with migration = Migration.run)
+
 actor {
   include MixinStorage();
   let accessControlState = AccessControl.initState();
@@ -506,6 +506,13 @@ actor {
         productsMap.values().toArray();
       };
       case (null) { [] };
+    };
+  };
+
+  public query ({ caller }) func getProduct(storeId : Text, productId : Text) : async ?Product {
+    switch (storeProducts.get(storeId)) {
+      case (null) { null };
+      case (?productsMap) { productsMap.get(productId) };
     };
   };
 

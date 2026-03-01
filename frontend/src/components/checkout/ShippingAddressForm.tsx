@@ -46,12 +46,17 @@ export default function ShippingAddressForm({
   skipShipping = false,
 }: ShippingAddressFormProps) {
   const [internal, setInternal] = React.useState<ShippingAddress>(externalAddress ?? EMPTY);
+  const [errors, setErrors] = React.useState<Partial<Record<keyof ShippingAddress, string>>>({});
 
   // Use controlled value if provided, otherwise internal state
   const address = externalAddress ?? internal;
 
   const update = (field: keyof ShippingAddress, value: string) => {
     const updated = { ...address, [field]: value };
+    // Clear error on change
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
     if (onChange) {
       onChange(updated);
     } else {
@@ -59,13 +64,26 @@ export default function ShippingAddressForm({
     }
   };
 
+  const validate = (): boolean => {
+    const newErrors: Partial<Record<keyof ShippingAddress, string>> = {};
+    if (!address.street.trim()) newErrors.street = 'Street address is required';
+    if (!address.city.trim()) newErrors.city = 'City is required';
+    if (!address.state.trim()) newErrors.state = 'State / Province is required';
+    if (!address.zip.trim()) newErrors.zip = 'ZIP / Postal code is required';
+    if (!address.country.trim()) newErrors.country = 'Country is required';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
     if (onSubmit) {
       onSubmit(address);
     }
   };
 
+  // Auto-skip for digital-only orders
   if (skipShipping) {
     return (
       <div className="space-y-4">
@@ -106,8 +124,11 @@ export default function ShippingAddressForm({
           value={address.street}
           onChange={(e) => update('street', e.target.value)}
           placeholder="123 Main Street, Apt 4B"
-          required
+          className={errors.street ? 'border-destructive' : ''}
         />
+        {errors.street && (
+          <p className="text-xs text-destructive">{errors.street}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -120,8 +141,11 @@ export default function ShippingAddressForm({
             value={address.city}
             onChange={(e) => update('city', e.target.value)}
             placeholder="New York"
-            required
+            className={errors.city ? 'border-destructive' : ''}
           />
+          {errors.city && (
+            <p className="text-xs text-destructive">{errors.city}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="state" className="font-sans text-sm">
@@ -132,8 +156,11 @@ export default function ShippingAddressForm({
             value={address.state}
             onChange={(e) => update('state', e.target.value)}
             placeholder="NY"
-            required
+            className={errors.state ? 'border-destructive' : ''}
           />
+          {errors.state && (
+            <p className="text-xs text-destructive">{errors.state}</p>
+          )}
         </div>
       </div>
 
@@ -147,15 +174,18 @@ export default function ShippingAddressForm({
             value={address.zip}
             onChange={(e) => update('zip', e.target.value)}
             placeholder="10001"
-            required
+            className={errors.zip ? 'border-destructive' : ''}
           />
+          {errors.zip && (
+            <p className="text-xs text-destructive">{errors.zip}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label className="font-sans text-sm">
             Country <span className="text-destructive">*</span>
           </Label>
           <Select value={address.country} onValueChange={(v) => update('country', v)}>
-            <SelectTrigger>
+            <SelectTrigger className={errors.country ? 'border-destructive' : ''}>
               <SelectValue placeholder="Select country" />
             </SelectTrigger>
             <SelectContent>
@@ -164,6 +194,9 @@ export default function ShippingAddressForm({
               ))}
             </SelectContent>
           </Select>
+          {errors.country && (
+            <p className="text-xs text-destructive">{errors.country}</p>
+          )}
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 import React from 'react';
 import { useListActiveAuctions } from '../hooks/useQueries';
+import type { LocalAuction } from '../hooks/useQueries';
 import AuctionGrid from '../components/auctions/AuctionGrid';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Gavel } from 'lucide-react';
 
 export default function Auctions() {
@@ -19,10 +21,15 @@ export default function Auctions() {
         </p>
       </div>
 
-      <AuctionGrid
-        auctions={auctions ?? []}
-        isLoading={isLoading}
-      />
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-64 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <AuctionGrid auctions={(auctions ?? []) as LocalAuction[]} />
+      )}
     </main>
   );
 }

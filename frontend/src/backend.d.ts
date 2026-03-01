@@ -116,6 +116,7 @@ export interface backendInterface {
     getAllStoreIds(): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getProduct(storeId: string, productId: string): Promise<Product | null>;
     getStoresByVendor(vendorId: Principal): Promise<Array<StoreResponse>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;

@@ -1,130 +1,56 @@
 {
   "kind": "build_request",
-  "title": "Add Product Variants Support",
+  "title": "Dynamic price and stock updates on variant selection",
   "projectName": "Fragrance.Intl",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Extend the backend Product data type to support variants (e.g., size, concentration, bottle type) as a list of variant options, each with a name, value, optional price adjustment, and optional stock quantity. Store variants as part of the product record.",
-      "target": "backend",
+      "text": "On the ProductDetail page, when the user selects a variant, dynamically update the displayed price and stock availability to reflect the selected variant's price and stock values without a page reload.",
+      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-1"
         ],
         "quotes": [
-          "product variants, bundles and wholesaling"
+          "move on to dynamic price and stock updates when a variant is selected"
         ]
       },
       "acceptanceCriteria": [
-        "Product records can store zero or more variants.",
-        "Each variant has: name (e.g. 'Size'), value (e.g. '50ml'), priceAdjustment (optional, positive or negative), and stock (optional Nat).",
-        "Existing products without variants are unaffected."
+        "The price shown on the product detail page updates immediately when a different variant is selected.",
+        "The stock status (in stock / out of stock count) updates immediately when a different variant is selected.",
+        "If the selected variant has zero stock, the Add to Cart button is disabled and an out-of-stock message is shown.",
+        "The initial render shows the price and stock of the first/default variant (or base product if no variant is pre-selected).",
+        "No backend call is triggered solely for the price/stock update — the data already present in the product query is used."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Add backend functions to create, update, and delete variants on a product. Only the product owner (vendor) or an admin may modify variants.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-1"
-        ],
-        "quotes": [
-          "product variants"
-        ]
-      },
-      "acceptanceCriteria": [
-        "addProductVariant(productId, variant) adds a variant to a product.",
-        "updateProductVariant(productId, variantIndex, variant) updates an existing variant.",
-        "removeProductVariant(productId, variantIndex) removes a variant.",
-        "Calls from non-owners and non-admins return an error."
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Update the ProductForm component in the vendor dashboard to allow vendors to add, edit, and remove product variants inline. Each variant row should have fields for name, value, price adjustment (optional), and stock (optional).",
+      "text": "On the ProductCard component, when the user selects a variant (if variant selection is exposed on the card), update the displayed price and stock badge to reflect the selected variant's values.",
       "target": "frontend",
       "source": {
         "messageIds": [
           "msg-1"
         ],
         "quotes": [
-          "product variants"
+          "dynamic price and stock updates when a variant is selected"
         ]
       },
       "acceptanceCriteria": [
-        "Vendors can add a new variant row with name, value, price adjustment, and stock fields.",
-        "Vendors can remove any variant row.",
-        "On product save, variants are persisted via the backend mutation.",
-        "Existing products with no variants render a clean empty variants section."
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Update the ProductCard and product detail UI to display available variants as selectable options (e.g., a dropdown or button group). When a variant is selected, show the adjusted price and variant-specific stock availability.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-1"
-        ],
-        "quotes": [
-          "product variants"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Products with variants show a variant selector on the product card or detail view.",
-        "Selecting a variant updates the displayed price with any price adjustment applied.",
-        "Add-to-cart includes the selected variant information.",
-        "Products with no variants render normally with no selector shown."
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "text": "Update the TypeScript types in frontend/src/types/index.ts to include a ProductVariant type (name, value, priceAdjustment, stock) and extend the Product type to include an optional variants array.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-1"
-        ],
-        "quotes": [
-          "product variants"
-        ]
-      },
-      "acceptanceCriteria": [
-        "ProductVariant type is defined with correct fields.",
-        "Product type includes variants: ProductVariant[] field.",
-        "All existing type usages remain compatible."
-      ]
-    },
-    {
-      "id": "REQ-6",
-      "text": "Add React Query hooks in useQueries.ts for addProductVariant, updateProductVariant, and removeProductVariant mutations, and ensure product queries re-fetch after any variant mutation.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-1"
-        ],
-        "quotes": [
-          "product variants"
-        ]
-      },
-      "acceptanceCriteria": [
-        "useAddProductVariant, useUpdateProductVariant, useRemoveProductVariant mutation hooks are available.",
-        "On success, the relevant product query cache is invalidated so the UI reflects changes immediately."
+        "Selecting a variant on a ProductCard updates the price displayed on that card.",
+        "Selecting a variant on a ProductCard updates the stock status badge on that card.",
+        "Changes are local to that card and do not affect other cards."
       ]
     }
   ],
   "constraints": [
-    "All Motoko logic must remain in backend/main.mo (single-actor architecture).",
-    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
-    "Implement only product variants in this step — do not implement bundles or wholesaling yet."
+    "Do not add new backend queries solely for price/stock variant lookups — use data already returned by existing product queries.",
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui."
   ],
   "nonGoals": [
-    "Product bundles (deferred to a subsequent build step).",
-    "Wholesaling / wholesale pricing tiers (deferred to a subsequent build step).",
-    "Transfer of ownership feature (deferred — previous build attempt failed, to be retried separately).",
-    "Changes to cart, order, or checkout logic beyond passing variant info through add-to-cart."
+    "Adding new variant fields or changing the backend data model.",
+    "Persisting the selected variant between page navigations.",
+    "Real-time inventory sync from the backend triggered by variant selection."
   ],
   "imageRequirements": {
     "required": [],

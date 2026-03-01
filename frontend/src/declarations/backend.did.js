@@ -155,6 +155,7 @@ export const idlService = IDL.Service({
   'getAllStoreIds' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getProduct' : IDL.Func([IDL.Text, IDL.Text], [IDL.Opt(Product)], ['query']),
   'getStoresByVendor' : IDL.Func(
       [IDL.Principal],
       [IDL.Vec(StoreResponse)],
@@ -345,6 +346,11 @@ export const idlFactory = ({ IDL }) => {
     'getAllStoreIds' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getProduct' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Opt(Product)],
+        ['query'],
+      ),
     'getStoresByVendor' : IDL.Func(
         [IDL.Principal],
         [IDL.Vec(StoreResponse)],

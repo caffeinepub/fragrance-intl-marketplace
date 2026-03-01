@@ -1,62 +1,15 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T16:25:29.087Z",
-  "summary": "The diff implements most of the product variants requirements. Backend (REQ-1, REQ-2) adds a ProductVariant type and variants field to Product in main.mo. Frontend (REQ-3) adds inline variant editing in StoreProductManager. Frontend (REQ-4) adds variant selector to ProductCard. Frontend (REQ-5) adds ProductVariant type and extends Product in types/index.ts. Frontend (REQ-6) adds variant mutation hooks in useQueries.ts. However, several specific acceptance criteria have gaps: the ProductVariant type uses 'stockAdjustment' instead of the spec's 'stock' (optional Nat); priceAdjustment is Nat (not optional/signed) in backend; add-to-cart variant info passthrough is only partially implemented.",
-  "missing_requirements": [
-    {
-      "id": "REQ-1",
-      "requirement": "Each variant has: name, value, priceAdjustment (optional, positive or negative), and stock (optional Nat).",
-      "reason": "The implemented ProductVariant type uses 'stockAdjustment: Nat' (not optional 'stock: Nat') in both backend/main.mo and frontend/src/types/index.ts. priceAdjustment is typed as Nat in the backend, which prevents negative price adjustments as the spec requires.",
-      "evidence": [
-        "backend/main.mo",
-        "frontend/src/types/index.ts"
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "requirement": "Add-to-cart includes the selected variant information.",
-      "reason": "In ProductCard.tsx, handleAddToCart calls addToCart.mutateAsync with only { productId, quantity } — no variant index or variant label is passed to the cart mutation. The variant is only used for a toast display label.",
-      "evidence": [
-        "frontend/src/components/products/ProductCard.tsx"
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "requirement": "ProductVariant type is defined with correct fields (name, value, priceAdjustment, stock).",
-      "reason": "The ProductVariant interface in types/index.ts uses 'stockAdjustment' instead of 'stock', and priceAdjustment is a required number rather than optional. The spec requires priceAdjustment to be optional and stock to be optional Nat.",
-      "evidence": [
-        "frontend/src/types/index.ts"
-      ]
-    }
-  ],
-  "hallucinated_features": [
-    {
-      "description": "A backend/migration.mo module was added to handle data migration of existing products to include the new variants field.",
-      "reason": "The build request did not request a migration module. While pragmatically useful, it was not specified as a requirement.",
-      "evidence": [
-        "backend/migration.mo"
-      ]
-    },
-    {
-      "description": "ProductVariant uses a 'stockAdjustment' field (delta-based stock offset) instead of the spec's 'stock' (optional absolute stock quantity per variant).",
-      "reason": "The spec defines stock as 'optional Nat' representing variant-specific stock quantity, not a delta adjustment on base product stock. The implementation uses stockAdjustment as an additive offset applied to product.stock, which is a different semantic model not requested.",
-      "evidence": [
-        "backend/main.mo",
-        "frontend/src/types/index.ts",
-        "frontend/src/components/products/ProductCard.tsx"
-      ]
-    }
-  ],
-  "confidence": 0.72,
+  "generatedAt": "2026-02-27T03:26:39.577Z",
+  "summary": "Both REQ-1 and REQ-2 appear to be implemented in the diff. ProductDetail.tsx implements dynamic price/stock updates on variant selection, disables Add to Cart when out of stock, auto-selects the first variant on load, and uses existing query data. ProductCard.tsx implements variant selection with dynamic price and stock badge updates local to each card. All major acceptance criteria appear covered by the diff evidence.",
+  "missing_requirements": [],
+  "hallucinated_features": [],
+  "confidence": 0.82,
   "changed_files": [
-    "backend/main.mo",
-    "backend/migration.mo",
     "frontend-file-summaries.txt",
     "frontend/src/components/products/ProductCard.tsx",
-    "frontend/src/components/vendor/StoreProductManager.tsx",
-    "frontend/src/hooks/useQueries.ts",
-    "frontend/src/types/index.ts",
+    "frontend/src/pages/ProductDetail.tsx",
     "project_state.json"
   ]
 }

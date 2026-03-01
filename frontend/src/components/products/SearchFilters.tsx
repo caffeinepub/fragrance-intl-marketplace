@@ -1,6 +1,6 @@
 import React from 'react';
-import type { SearchFilter } from '../../types';
-import { ProductType, Variant_quantityDesc_priceDesc_priceAsc } from '../../types';
+import { ProductType, SearchFilter } from '../../types';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -9,101 +9,120 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Search, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface SearchFiltersProps {
   filter: SearchFilter;
   onFilterChange: (filter: SearchFilter) => void;
 }
 
-const CATEGORIES = [
-  'Perfume', 'Cologne', 'Eau de Toilette', 'Eau de Parfum',
-  'Body Spray', 'Fragrance Oil', 'Candle', 'Diffuser', 'Other',
-];
-
 export default function SearchFilters({ filter, onFilterChange }: SearchFiltersProps) {
   const handleReset = () => {
-    onFilterChange({ keyword: null, category: null, productType: null, sortBy: null });
+    onFilterChange({});
   };
 
-  const hasFilters = filter.keyword || filter.category || filter.productType || filter.sortBy;
-
   return (
-    <div className="flex flex-wrap gap-3 items-center">
-      <div className="relative flex-1 min-w-[180px]">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+    <div className="space-y-4 p-4 bg-card border border-border rounded-xl">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-foreground">Filters</h3>
+        <Button variant="ghost" size="sm" onClick={handleReset} className="h-7 px-2 text-xs gap-1">
+          <X className="w-3 h-3" />
+          Reset
+        </Button>
+      </div>
+
+      {/* Keyword Search */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+          Search
+        </label>
         <Input
+          placeholder="Search products…"
           value={filter.keyword ?? ''}
-          onChange={(e) => onFilterChange({ ...filter, keyword: e.target.value || null })}
-          placeholder="Search fragrances…"
-          className="pl-8 h-9 font-sans text-sm border-border"
+          onChange={(e) =>
+            onFilterChange({ ...filter, keyword: e.target.value || undefined })
+          }
+          className="h-8 text-sm"
         />
       </div>
 
-      <Select
-        value={filter.category ?? 'all'}
-        onValueChange={(v) => onFilterChange({ ...filter, category: v === 'all' ? null : v })}
-      >
-        <SelectTrigger className="w-40 h-9 font-sans text-sm border-border">
-          <SelectValue placeholder="Category" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
-          {CATEGORIES.map((c) => (
-            <SelectItem key={c} value={c}>{c}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={filter.productType ?? 'all'}
-        onValueChange={(v) =>
-          onFilterChange({ ...filter, productType: v === 'all' ? null : (v as ProductType) })
-        }
-      >
-        <SelectTrigger className="w-36 h-9 font-sans text-sm border-border">
-          <SelectValue placeholder="Type" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
-          <SelectItem value={ProductType.physical}>Physical</SelectItem>
-          <SelectItem value={ProductType.digital}>Digital</SelectItem>
-          <SelectItem value={ProductType.service}>Service</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={filter.sortBy ?? 'none'}
-        onValueChange={(v) =>
-          onFilterChange({
-            ...filter,
-            sortBy: v === 'none' ? null : (v as 'priceAsc' | 'priceDesc' | 'quantityDesc'),
-          })
-        }
-      >
-        <SelectTrigger className="w-40 h-9 font-sans text-sm border-border">
-          <SelectValue placeholder="Sort by" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">Default Sort</SelectItem>
-          <SelectItem value={Variant_quantityDesc_priceDesc_priceAsc.priceAsc}>Price: Low to High</SelectItem>
-          <SelectItem value={Variant_quantityDesc_priceDesc_priceAsc.priceDesc}>Price: High to Low</SelectItem>
-          <SelectItem value={Variant_quantityDesc_priceDesc_priceAsc.quantityDesc}>Most Available</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {hasFilters && (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleReset}
-          className="h-9 font-sans text-xs text-muted-foreground hover:text-foreground"
+      {/* Category */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+          Category
+        </label>
+        <Select
+          value={filter.category ?? 'all'}
+          onValueChange={(v) =>
+            onFilterChange({ ...filter, category: v === 'all' ? undefined : v })
+          }
         >
-          <X className="w-3.5 h-3.5 mr-1" />
-          Clear
-        </Button>
-      )}
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="Perfume">Perfume</SelectItem>
+            <SelectItem value="Cologne">Cologne</SelectItem>
+            <SelectItem value="Body Spray">Body Spray</SelectItem>
+            <SelectItem value="Candle">Candle</SelectItem>
+            <SelectItem value="Diffuser">Diffuser</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Product Type */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+          Type
+        </label>
+        <Select
+          value={filter.productType ?? 'all'}
+          onValueChange={(v) =>
+            onFilterChange({
+              ...filter,
+              productType: v === 'all' ? undefined : (v as ProductType),
+            })
+          }
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value={ProductType.physical}>Physical</SelectItem>
+            <SelectItem value={ProductType.digital}>Digital</SelectItem>
+            <SelectItem value={ProductType.service}>Service</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Sort By */}
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+          Sort By
+        </label>
+        <Select
+          value={filter.sortBy ?? 'none'}
+          onValueChange={(v) =>
+            onFilterChange({
+              ...filter,
+              sortBy: v === 'none' ? undefined : (v as 'priceAsc' | 'priceDesc' | 'quantityDesc'),
+            })
+          }
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="Default" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Default</SelectItem>
+            <SelectItem value="priceAsc">Price: Low to High</SelectItem>
+            <SelectItem value="priceDesc">Price: High to Low</SelectItem>
+            <SelectItem value="quantityDesc">Most Stock</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

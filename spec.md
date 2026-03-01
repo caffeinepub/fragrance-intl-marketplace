@@ -1,14 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Add product variants support to Fragrance.Intl, allowing vendors to define size, concentration, or bottle-type variants for their products, and customers to select variants when viewing or adding products to cart.
+**Goal:** Dynamically update the displayed price and stock availability on the ProductDetail page and ProductCard component when a variant is selected, using already-loaded data without additional backend calls.
 
 **Planned changes:**
-- Extend the backend `Product` data type to store an optional list of variants, each with a name, value, optional price adjustment, and optional stock quantity
-- Add backend functions `addProductVariant`, `updateProductVariant`, and `removeProductVariant`, restricted to the product owner or an admin
-- Add a `ProductVariant` TypeScript type and extend the `Product` type to include an optional `variants` array
-- Update the `ProductForm` in the vendor dashboard to allow adding, editing, and removing variant rows inline
-- Update `ProductCard` and product detail UI to show a variant selector (dropdown or button group) that reflects adjusted price and stock when a variant is selected; add-to-cart passes the selected variant
-- Add React Query mutation hooks (`useAddProductVariant`, `useUpdateProductVariant`, `useRemoveProductVariant`) with cache invalidation on success
+- On the ProductDetail page, update the displayed price and stock status immediately when the user selects a variant, using data already present in the product query.
+- Disable the Add to Cart button and show an out-of-stock message when the selected variant has zero stock.
+- Ensure the initial render shows the price and stock of the first/default variant.
+- On the ProductCard component, update the displayed price and stock badge when a variant is selected, with changes local to that card only.
 
-**User-visible outcome:** Vendors can define multiple variants (e.g., 50ml, 100ml) for a product with individual price adjustments and stock levels. Shoppers can select a variant on the product card or detail page and see the correct price and availability before adding to cart.
+**User-visible outcome:** Users see the correct price and stock status update instantly when switching between variants on both the product detail page and product cards, with no page reload required.

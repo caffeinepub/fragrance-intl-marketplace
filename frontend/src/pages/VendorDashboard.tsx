@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useIsCallerApproved, useGetCallerUserProfile, useMyStores } from '../hooks/useQueries';
+import { useIsCallerApproved, useGetCallerUserProfile, useGetStoresByVendor } from '../hooks/useQueries';
 import AccessDenied from '../components/common/AccessDenied';
 import VendorPayoutsPanel from '../components/vendor/VendorPayoutsPanel';
 import VendorOrderHistory from '../components/vendor/VendorOrderHistory';
@@ -16,15 +16,15 @@ import { Store, Package, ArrowRight, Layers, ShoppingBag } from 'lucide-react';
 function VendorDashboardContent() {
   const { identity } = useInternetIdentity();
   const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
-  const { data: stores, isLoading: storesLoading } = useMyStores();
+  const vendorPrincipal = identity?.getPrincipal();
+  const { data: stores, isLoading: storesLoading } = useGetStoresByVendor(vendorPrincipal);
 
   const principalStr = identity?.getPrincipal().toString() || '';
   const storedVendorId = typeof window !== 'undefined'
     ? localStorage.getItem(`vendorId_${principalStr}`)
     : null;
 
-  // Track selected store; default to first store once loaded
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!selectedStoreId && stores && stores.length > 0) {
@@ -50,7 +50,7 @@ function VendorDashboardContent() {
         <div className="flex items-center gap-4 bg-card border border-border rounded px-4 py-3">
           <StoreSelector
             selectedStoreId={selectedStoreId}
-            onStoreChange={setSelectedStoreId}
+            onSelect={setSelectedStoreId}
           />
         </div>
       )}

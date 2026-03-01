@@ -1,75 +1,39 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Add Product Variants Support - Frontend",
+  "title": "Dynamic price and stock updates on variant selection",
   "requirements": [
     {
-      "id": "REQ-3",
-      "summary": "Update ProductForm to manage product variants with inline add/edit/remove functionality",
+      "id": "REQ-1",
+      "summary": "Update ProductDetail page to dynamically show selected variant's price and stock without page reload",
       "acceptanceCriteria": [
-        "Vendors can add a new variant row with name, value, price adjustment, and stock fields.",
-        "Vendors can remove any variant row.",
-        "On product save, variants are persisted via the backend mutation.",
-        "Existing products with no variants render a clean empty variants section."
+        "The price shown on the product detail page updates immediately when a different variant is selected.",
+        "The stock status (in stock / out of stock count) updates immediately when a different variant is selected.",
+        "If the selected variant has zero stock, the Add to Cart button is disabled and an out-of-stock message is shown.",
+        "The initial render shows the price and stock of the first/default variant (or base product if no variant is pre-selected).",
+        "No backend call is triggered solely for the price/stock update — the data already present in the product query is used."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/vendor/ProductForm.tsx",
+          "path": "frontend/src/pages/ProductDetail.tsx",
           "operation": "modify",
-          "description": "Add variant management UI to the ProductForm component. Include a variants section with controls to add new variant rows (each with name, value, priceAdjustment, and stock fields), edit existing variants inline, and remove variants. Initialize variants as an empty array for new products. Wire variant state into the form submission payload so variants are passed to the backend mutation. Ensure the UI gracefully handles products with zero variants."
+          "description": "Add state to track the currently selected variant index. Create a function to compute the effective price by adding the base product price to the selected variant's priceAdjustment. Create a function to compute the effective stock by adding the base product stock to the selected variant's stockAdjustment. Update the price display to show the computed price whenever the selected variant changes. Update the stock display to show the computed stock whenever the selected variant changes. Disable the Add to Cart button and show an out-of-stock message when the computed stock is zero or negative. Ensure the initial render uses the first variant (index 0) if variants exist, otherwise show the base product price and stock."
         }
       ]
     },
     {
-      "id": "REQ-4",
-      "summary": "Display product variants as selectable options in ProductCard and detail views with dynamic pricing and stock",
+      "id": "REQ-2",
+      "summary": "Update ProductCard component to dynamically show selected variant's price and stock when variant selection is exposed",
       "acceptanceCriteria": [
-        "Products with variants show a variant selector on the product card or detail view.",
-        "Selecting a variant updates the displayed price with any price adjustment applied.",
-        "Add-to-cart includes the selected variant information.",
-        "Products with no variants render normally with no selector shown."
+        "Selecting a variant on a ProductCard updates the price displayed on that card.",
+        "Selecting a variant on a ProductCard updates the stock status badge on that card.",
+        "Changes are local to that card and do not affect other cards."
       ],
       "file_operations": [
         {
           "path": "frontend/src/components/products/ProductCard.tsx",
           "operation": "modify",
-          "description": "Add variant selector UI when product.variants is non-empty. Render a dropdown or button group to select a variant by index. When a variant is selected, calculate and display the adjusted price (product.price + variant.priceAdjustment). Update the add-to-cart handler to include the selected variant index and adjusted price in the cart item. If no variants exist, render the existing price and add-to-cart flow unchanged."
-        },
-        {
-          "path": "frontend/src/pages/ProductListing.tsx",
-          "operation": "modify",
-          "description": "Verify that ProductCard is used in the product grid and that variant selectors will render correctly in the listing context. No structural changes needed if ProductCard already handles variants per REQ-4 file operation above."
-        }
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "summary": "Extend TypeScript types to include ProductVariant and update Product type with optional variants array",
-      "acceptanceCriteria": [
-        "ProductVariant type is defined with correct fields.",
-        "Product type includes variants: ProductVariant[] field.",
-        "All existing type usages remain compatible."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/types/index.ts",
-          "operation": "modify",
-          "description": "Define a new ProductVariant type with fields: name (string), value (string), priceAdjustment (number), stockAdjustment (number). Update the Product type to include a variants field of type ProductVariant[] (non-optional, defaults to empty array). Ensure all existing Product type usages remain compatible by treating empty variants arrays as no-op."
-        }
-      ]
-    },
-    {
-      "id": "REQ-6",
-      "summary": "Add React Query mutation hooks for variant CRUD operations with cache invalidation",
-      "acceptanceCriteria": [
-        "useAddProductVariant, useUpdateProductVariant, useRemoveProductVariant mutation hooks are available.",
-        "On success, the relevant product query cache is invalidated so the UI reflects changes immediately."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Add three mutation hooks: useAddProductVariant, useUpdateProductVariant, and useRemoveProductVariant. Each hook calls the corresponding backend method (addVariant, updateVariant, deleteVariant) with storeId, productId, and variant parameters. On success, invalidate the product list query cache for the given storeId and the individual product query (if applicable) to ensure the UI reflects the updated variants immediately. Use the useActor hook to access the backend actor."
+          "description": "Add state to track the currently selected variant index for the card. Create a function to compute the effective price by adding the base product price to the selected variant's priceAdjustment. Create a function to compute the effective stock by adding the base product stock to the selected variant's stockAdjustment. Update the displayed price to reflect the computed price when a variant is selected. Update the stock badge or status display to reflect the computed stock when a variant is selected. Ensure all computed values are isolated to this card instance and do not affect other ProductCard instances. If variant selection UI is not currently present on the card, add a minimal variant selector (e.g., a dropdown or button group) that allows users to choose a variant."
         }
       ]
     }

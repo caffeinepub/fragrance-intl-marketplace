@@ -2,8 +2,31 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-update-the-productcard-and-product-detail-ui-to-display-available-variants-as-selectable-options-e-g-a-dropdown-or-button-group-when-a-variant-is-selected-show-the-adjusted-price-and-variant-specific-stock-availability",
-      "featureTitle": "Update the ProductCard and product detail UI to display available variants as selectable options (e.g., a dropdown or button group). When a variant is selected, show the adjusted price and variant-specific stock availability.",
+      "featureId": "feature-on-the-productdetail-page-when-the-user-selects-a-variant-dynamically-update-the-displayed-price-and-stock-availability-to-reflect-the-selected-variant-s-price-and-stock-values-without-a-page-reload",
+      "featureTitle": "On the ProductDetail page, when the user selects a variant, dynamically update the displayed price and stock availability to reflect the selected variant's price and stock values without a page reload.",
+      "files": [
+        "frontend/src/pages/ProductDetail.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "stripe@3.0.0",
+        "http-outcalls@3.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-on-the-productcard-component-when-the-user-selects-a-variant-if-variant-selection-is-exposed-on-the-card-update-the-displayed-price-and-stock-badge-to-reflect-the-selected-variant-s-values",
+      "featureTitle": "On the ProductCard component, when the user selects a variant (if variant selection is exposed on the card), update the displayed price and stock badge to reflect the selected variant's values.",
       "files": [
         "frontend/src/components/products/ProductCard.tsx"
       ],
@@ -20,53 +43,7 @@
         "http-outcalls@3.0.0"
       ],
       "testIds": [
-        "REQ-4"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-update-the-typescript-types-in-frontend-src-types-index-ts-to-include-a-productvariant-type-name-value-priceadjustment-stock-and-extend-the-product-type-to-include-an-optional-variants-array",
-      "featureTitle": "Update the TypeScript types in frontend/src/types/index.ts to include a ProductVariant type (name, value, priceAdjustment, stock) and extend the Product type to include an optional variants array.",
-      "files": [
-        "frontend/src/types/index.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-5"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-react-query-hooks-in-usequeries-ts-for-addproductvariant-updateproductvariant-and-removeproductvariant-mutations-and-ensure-product-queries-re-fetch-after-any-variant-mutation",
-      "featureTitle": "Add React Query hooks in useQueries.ts for addProductVariant, updateProductVariant, and removeProductVariant mutations, and ensure product queries re-fetch after any variant mutation.",
-      "files": [
-        "frontend/src/hooks/useQueries.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "stripe@3.0.0",
-        "http-outcalls@3.0.0"
-      ],
-      "testIds": [
-        "REQ-6"
+        "REQ-2"
       ],
       "confidence": "high"
     }

@@ -130,6 +130,7 @@ export interface _SERVICE {
   'getAllStoreIds' : ActorMethod<[], Array<string>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getProduct' : ActorMethod<[string, string], [] | [Product]>,
   'getStoresByVendor' : ActorMethod<[Principal], Array<StoreResponse>>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,

@@ -1,22 +1,22 @@
 import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createRouter,
   createRoute,
   createRootRoute,
   RouterProvider,
   Outlet,
+  redirect,
 } from '@tanstack/react-router';
-import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from 'next-themes';
+import { Toaster } from '@/components/ui/sonner';
+
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
-import ProfileSetupModal from './components/auth/ProfileSetupModal';
-import { useInternetIdentity } from './hooks/useInternetIdentity';
-import { useGetCallerUserProfile } from './hooks/useQueries';
 
-// Pages
 import Home from './pages/Home';
 import ProductListing from './pages/ProductListing';
+import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
@@ -33,30 +33,34 @@ import AuctionDetail from './pages/AuctionDetail';
 import TradeOffers from './pages/TradeOffers';
 import NewTradeOffer from './pages/NewTradeOffer';
 
-// Layout wrapper with Header/Footer and profile setup
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
+    },
+  },
+});
+
+// Layout component
 function Layout() {
-  const { identity } = useInternetIdentity();
-  const { data: userProfile, isLoading: profileLoading, isFetched } = useGetCallerUserProfile();
-
-  const isAuthenticated = !!identity;
-  const showProfileSetup = isAuthenticated && !profileLoading && isFetched && userProfile === null;
-
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
-      <div className="flex-1">
+      <main className="flex-1">
         <Outlet />
-      </div>
+      </main>
       <Footer />
-      <ProfileSetupModal open={showProfileSetup} />
-      <Toaster richColors position="top-right" />
     </div>
   );
 }
 
-// Route definitions
-const rootRoute = createRootRoute({ component: Layout });
+// Root route
+const rootRoute = createRootRoute({
+  component: Layout,
+});
 
+// Routes
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
@@ -67,6 +71,12 @@ const productsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/products',
   component: ProductListing,
+});
+
+const productDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/products/$storeId/$productId',
+  component: ProductDetail,
 });
 
 const cartRoute = createRoute({
@@ -83,14 +93,8 @@ const checkoutRoute = createRoute({
 
 const orderConfirmationRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/order/$orderId',
+  path: '/order-confirmation/$orderId',
   component: OrderConfirmation,
-});
-
-const orderReceiptRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/order/$orderId/receipt',
-  component: OrderReceipt,
 });
 
 const myOrdersRoute = createRoute({
@@ -99,7 +103,13 @@ const myOrdersRoute = createRoute({
   component: MyOrders,
 });
 
-const vendorRegisterRoute = createRoute({
+const orderReceiptRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/orders/$orderId/receipt',
+  component: OrderReceipt,
+});
+
+const vendorRegistrationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/vendor/register',
   component: VendorRegistration,
@@ -117,7 +127,7 @@ const vendorProductsRoute = createRoute({
   component: VendorProducts,
 });
 
-const adminRoute = createRoute({
+const adminDashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
   component: AdminDashboard,
@@ -125,13 +135,13 @@ const adminRoute = createRoute({
 
 const paymentSuccessRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/payment/success',
+  path: '/payment-success',
   component: PaymentSuccess,
 });
 
 const paymentCancelRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/payment/cancel',
+  path: '/payment-cancel',
   component: PaymentCancel,
 });
 
@@ -162,15 +172,16 @@ const newTradeOfferRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   productsRoute,
+  productDetailRoute,
   cartRoute,
   checkoutRoute,
   orderConfirmationRoute,
-  orderReceiptRoute,
   myOrdersRoute,
-  vendorRegisterRoute,
+  orderReceiptRoute,
+  vendorRegistrationRoute,
   vendorDashboardRoute,
   vendorProductsRoute,
-  adminRoute,
+  adminDashboardRoute,
   paymentSuccessRoute,
   paymentCancelRoute,
   auctionsRoute,
@@ -189,8 +200,11 @@ declare module '@tanstack/react-router' {
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-      <RouterProvider router={router} />
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+        <Toaster richColors position="top-right" />
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useVendorTransactions } from '../../hooks/useQueries';
-import type { TransactionEntry } from '../../types';
+import type { VendorTransaction } from '../../hooks/useQueries';
 import {
   Table,
   TableBody,
@@ -27,7 +27,7 @@ export default function VendorOrderHistory() {
   const [sortAsc, setSortAsc] = useState(false);
   const navigate = useNavigate();
 
-  const sorted = [...(transactions ?? [])].sort((a, b) => {
+  const sorted = [...(transactions ?? [])].sort((a: VendorTransaction, b: VendorTransaction) => {
     const diff = a.timestamp - b.timestamp;
     return sortAsc ? diff : -diff;
   });
@@ -70,7 +70,7 @@ export default function VendorOrderHistory() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted.map((tx) => (
+          {sorted.map((tx: VendorTransaction) => (
             <TableRow key={tx.orderId}>
               <TableCell className="font-mono text-xs">{tx.orderId.slice(0, 10)}…</TableCell>
               <TableCell className="font-sans text-xs text-muted-foreground">
@@ -91,7 +91,7 @@ export default function VendorOrderHistory() {
                   className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
                     navigate({
-                      to: '/order/$orderId/receipt',
+                      to: '/orders/$orderId/receipt',
                       params: { orderId: tx.orderId },
                     })
                   }

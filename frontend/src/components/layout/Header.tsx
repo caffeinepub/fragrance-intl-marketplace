@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from '@tanstack/react-router';
-import { useInternetIdentity } from '../../hooks/useInternetIdentity';
-import { useGetCallerUserProfile, useIsCallerAdmin, useIsCallerApproved } from '../../hooks/useQueries';
-import LoginButton from '../auth/LoginButton';
-import CartDropdown from '../cart/CartDropdown';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { ShoppingCart, Menu, X, User, LogOut, Settings, Package, Gavel, ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,247 +9,201 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, X, User, Store, Package, ShoppingBag, ClipboardList, Shield, Gavel, ArrowLeftRight } from 'lucide-react';
+import { useInternetIdentity } from '../../hooks/useInternetIdentity';
+import { useGetCallerUserProfile, useIsCallerApproved, useIsCallerAdmin } from '../../hooks/useQueries';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function Header() {
-  const { identity } = useInternetIdentity();
-  const { data: userProfile } = useGetCallerUserProfile();
-  const { data: isAdmin } = useIsCallerAdmin();
-  const { data: isApproved } = useIsCallerApproved();
-  const [mobileOpen, setMobileOpen] = useState(false);
-
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { login, clear, loginStatus, identity } = useInternetIdentity();
   const isAuthenticated = !!identity;
+  const isLoggingIn = loginStatus === 'logging-in';
+
+  const { data: userProfile } = useGetCallerUserProfile();
+  const { data: isApproved } = useIsCallerApproved();
+  const { data: isAdmin } = useIsCallerAdmin();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleAuth = async () => {
+    if (isAuthenticated) {
+      await clear();
+      queryClient.clear();
+    } else {
+      try {
+        await login();
+      } catch (error: any) {
+        if (error?.message === 'User is already authenticated') {
+          await clear();
+          setTimeout(() => login(), 300);
+        }
+      }
+    }
+  };
+
+  const displayName = userProfile?.name || identity?.getPrincipal().toString().slice(0, 8) + '…';
 
   return (
-    <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b border-border">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 group">
-          <img
-            src="/assets/generated/logo-mark.dim_256x256.png"
-            alt="Fragrance.Intl"
-            className="w-8 h-8 rounded object-cover"
-          />
-          <div className="hidden sm:block">
-            <span className="font-serif text-lg text-foreground tracking-wide group-hover:text-gold transition-colors">
-              Fragrance<span className="text-gold">.Intl</span>
-            </span>
-          </div>
-        </Link>
+    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/assets/generated/logo-mark.dim_256x256.png" alt="Logo" className="w-8 h-8 rounded-lg" />
+            <span className="font-bold text-lg text-foreground">Fragrance.Intl</span>
+          </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-1">
-          <Button variant="ghost" size="sm" asChild className="font-sans text-sm hover:bg-gold/10 hover:text-gold">
-            <Link to="/products">Shop</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild className="font-sans text-sm hover:bg-gold/10 hover:text-gold">
-            <Link to="/auctions">Auctions</Link>
-          </Button>
-          {isAuthenticated && (
-            <>
-              <Button variant="ghost" size="sm" asChild className="font-sans text-sm hover:bg-gold/10 hover:text-gold">
-                <Link to="/my-orders">My Orders</Link>
-              </Button>
-              {isApproved ? (
-                <Button variant="ghost" size="sm" asChild className="font-sans text-sm hover:bg-gold/10 hover:text-gold">
-                  <Link to="/vendor/dashboard">My Store</Link>
-                </Button>
-              ) : (
-                <Button variant="ghost" size="sm" asChild className="font-sans text-sm hover:bg-gold/10 hover:text-gold">
-                  <Link to="/vendor/register">Become a Vendor</Link>
-                </Button>
-              )}
-              {isAdmin && (
-                <Button variant="ghost" size="sm" asChild className="font-sans text-sm hover:bg-gold/10 hover:text-gold">
-                  <Link to="/admin">Admin</Link>
-                </Button>
-              )}
-            </>
-          )}
-        </nav>
-
-        {/* Right Actions */}
-        <div className="flex items-center gap-2">
-          <CartDropdown />
-
-          {isAuthenticated && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="hover:bg-gold/10">
-                  <User className="w-5 h-5 text-bronze" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <div className="px-3 py-2 border-b border-border">
-                  <p className="font-sans text-sm font-medium text-foreground truncate">
-                    {userProfile?.name || 'User'}
-                  </p>
-                  <p className="font-sans text-xs text-muted-foreground capitalize">
-                    {userProfile?.role || 'customer'}
-                  </p>
-                </div>
-                <DropdownMenuItem asChild>
-                  <Link to="/my-orders" className="flex items-center gap-2 cursor-pointer">
-                    <ClipboardList className="w-4 h-4" />
-                    My Orders
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/trade-offers" className="flex items-center gap-2 cursor-pointer">
-                    <ArrowLeftRight className="w-4 h-4" />
-                    Trade Offers
-                  </Link>
-                </DropdownMenuItem>
-                {isApproved ? (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link to="/vendor/dashboard" className="flex items-center gap-2 cursor-pointer">
-                        <Store className="w-4 h-4" />
-                        My Store
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/vendor/products" className="flex items-center gap-2 cursor-pointer">
-                        <Package className="w-4 h-4" />
-                        My Products
-                      </Link>
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <DropdownMenuItem asChild>
-                    <Link to="/vendor/register" className="flex items-center gap-2 cursor-pointer">
-                      <Store className="w-4 h-4" />
-                      Become a Vendor
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin" className="flex items-center gap-2 cursor-pointer">
-                        <Shield className="w-4 h-4" />
-                        Admin Dashboard
-                      </Link>
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          <LoginButton />
-
-          {/* Mobile Menu Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden hover:bg-gold/10"
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* Mobile Nav */}
-      {mobileOpen && (
-        <div className="md:hidden border-t border-border bg-card px-4 py-3 space-y-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="w-full justify-start font-sans text-sm"
-            onClick={() => setMobileOpen(false)}
-          >
-            <Link to="/products">
-              <ShoppingBag className="w-4 h-4 mr-2" />
-              Shop
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-6">
+            <Link to="/products" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Products
             </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="w-full justify-start font-sans text-sm"
-            onClick={() => setMobileOpen(false)}
-          >
-            <Link to="/auctions">
-              <Gavel className="w-4 h-4 mr-2" />
+            <Link to="/auctions" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Auctions
             </Link>
-          </Button>
-          {isAuthenticated && (
-            <>
+            {isAuthenticated && isApproved && (
+              <Link to="/vendor/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Vendor
+              </Link>
+            )}
+            {isAdmin && (
+              <Link to="/admin" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Admin
+              </Link>
+            )}
+          </nav>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-3">
+            {isAuthenticated && (
               <Button
                 variant="ghost"
-                size="sm"
-                asChild
-                className="w-full justify-start font-sans text-sm"
-                onClick={() => setMobileOpen(false)}
+                size="icon"
+                onClick={() => navigate({ to: '/cart' })}
+                aria-label="Cart"
               >
-                <Link to="/my-orders">
-                  <ClipboardList className="w-4 h-4 mr-2" />
+                <ShoppingCart className="w-5 h-5" />
+              </Button>
+            )}
+
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <User className="w-4 h-4" />
+                    <span className="hidden sm:inline max-w-24 truncate">{displayName}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate({ to: '/my-orders' })}>
+                    <Package className="w-4 h-4 mr-2" />
+                    My Orders
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate({ to: '/trade-offers' })}>
+                    <ArrowLeftRight className="w-4 h-4 mr-2" />
+                    Trade Offers
+                  </DropdownMenuItem>
+                  {isApproved && (
+                    <DropdownMenuItem onClick={() => navigate({ to: '/vendor/dashboard' })}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Vendor Dashboard
+                    </DropdownMenuItem>
+                  )}
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate({ to: '/admin' })}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Admin Panel
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleAuth} className="text-destructive">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button onClick={handleAuth} disabled={isLoggingIn} size="sm">
+                {isLoggingIn ? 'Logging in…' : 'Login'}
+              </Button>
+            )}
+
+            {/* Mobile Menu Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-border py-4 space-y-2">
+            <Link
+              to="/products"
+              className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Products
+            </Link>
+            <Link
+              to="/auctions"
+              className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Auctions
+            </Link>
+            {isAuthenticated && (
+              <>
+                <Link
+                  to="/cart"
+                  className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Cart
+                </Link>
+                <Link
+                  to="/my-orders"
+                  className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   My Orders
                 </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                className="w-full justify-start font-sans text-sm"
-                onClick={() => setMobileOpen(false)}
-              >
-                <Link to="/trade-offers">
-                  <ArrowLeftRight className="w-4 h-4 mr-2" />
+                <Link
+                  to="/trade-offers"
+                  className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   Trade Offers
                 </Link>
-              </Button>
-              {isApproved ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="w-full justify-start font-sans text-sm"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <Link to="/vendor/dashboard">
-                    <Store className="w-4 h-4 mr-2" />
-                    My Store
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="w-full justify-start font-sans text-sm"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <Link to="/vendor/register">
-                    <Store className="w-4 h-4 mr-2" />
-                    Become a Vendor
-                  </Link>
-                </Button>
-              )}
-              {isAdmin && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="w-full justify-start font-sans text-sm"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <Link to="/admin">
-                    <Shield className="w-4 h-4 mr-2" />
-                    Admin
-                  </Link>
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      )}
+              </>
+            )}
+            {isApproved && (
+              <Link
+                to="/vendor/dashboard"
+                className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Vendor Dashboard
+              </Link>
+            )}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Admin Panel
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
     </header>
   );
 }

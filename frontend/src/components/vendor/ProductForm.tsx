@@ -1,230 +1,133 @@
-import React, { useState, useEffect } from 'react';
-import { ExternalBlob } from '../../backend';
-import { ProductType } from '../../types';
-import type { Product } from '../../types';
-import { useCreateProduct, useUpdateProduct } from '../../hooks/useQueries';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAddProductToStore, useUpdateStoreProduct } from '../../hooks/useQueries';
+import type { Product } from '../../types/index';
+import { ProductType, ProductStatus } from '../../backend';
 
 interface ProductFormProps {
-  vendorId: string;
-  product?: Product;
+  storeId: string;
+  product?: Product | null;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-export default function ProductForm({ vendorId, product, onSuccess, onCancel }: ProductFormProps) {
-  const createProduct = useCreateProduct();
-  const updateProduct = useUpdateProduct();
+export default function ProductForm({ storeId, product, onSuccess, onCancel }: ProductFormProps) {
+  const addProduct = useAddProductToStore();
+  const updateProduct = useUpdateStoreProduct();
 
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    price: '',
-    category: '',
-    productType: ProductType.physical as ProductType,
-    stock: '',
-    imageUrl: '',
-  });
+  const [title, setTitle] = useState(product?.title ?? '');
+  const [description, setDescription] = useState(product?.description ?? '');
+  const [price, setPrice] = useState(product ? String(Number(product.price) / 100) : '');
+  const [stock, setStock] = useState(product ? String(Number(product.stock)) : '');
+  const [category, setCategory] = useState(product?.category ?? '');
+  const [productType, setProductType] = useState<string>(
+    product ? (typeof product.productType === 'object'
+      ? Object.keys(product.productType as object)[0]
+      : String(product.productType)) : 'physical'
+  );
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (product) {
-      setForm({
-        title: product.title,
-        description: product.description,
-        price: (product.price / 100).toFixed(2),
-        category: product.category,
-        productType: product.productType,
-        stock: String(product.stock),
-        imageUrl: product.image ?? '',
-      });
-    }
-  }, [product]);
-
-  const handleChange = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const isEditing = !!product;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.price || !form.category) {
-      toast.error('Please fill in all required fields');
+    setError('');
+
+    const parsedPrice = parseFloat(price);
+    const parsedStock = parseInt(stock, 10);
+
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      setError('Please enter a valid price.');
+      return;
+    }
+    if (isNaN(parsedStock) || parsedStock < 0) {
+      setError('Please enter a valid stock quantity.');
       return;
     }
 
-    const price = parseFloat(form.price);
-    const stock = parseInt(form.stock, 10);
-
-    if (isNaN(price) || price < 0) {
-      toast.error('Please enter a valid price');
-      return;
-    }
+    const productData = {
+      id: product?.id ?? `product-${Date.now()}`,
+      vendorId: storeId,
+      title,
+      description,
+      price: BigInt(Math.round(parsedPrice * 100)),
+      stock: BigInt(parsedStock),
+      category,
+      productType: { [productType]: null } as unknown as import('../../backend').ProductType,
+      status: { active: null } as unknown as import('../../backend').ProductStatus,
+      variants: product?.variants?.map(v => ({
+        name: v.name,
+        value: v.value,
+        priceAdjustment: BigInt(typeof v.priceAdjustment === 'bigint' ? v.priceAdjustment : v.priceAdjustment),
+        stockAdjustment: BigInt(typeof v.stockAdjustment === 'bigint' ? v.stockAdjustment : v.stockAdjustment),
+      })) ?? [],
+    };
 
     try {
-      if (product) {
-        await updateProduct.mutateAsync({
-          id: product.id,
-          title: form.title.trim(),
-          description: form.description.trim(),
-          price: BigInt(Math.round(price * 100)),
-          category: form.category.trim(),
-          productType: form.productType,
-          stock: BigInt(isNaN(stock) ? 0 : stock),
-          image: null,
-        });
-        toast.success('Product updated!');
+      if (isEditing) {
+        await updateProduct.mutateAsync({ storeId, product: productData });
       } else {
-        const id = `product_${Date.now()}`;
-        await createProduct.mutateAsync({
-          id,
-          vendorId,
-          title: form.title.trim(),
-          description: form.description.trim(),
-          price: BigInt(Math.round(price * 100)),
-          category: form.category.trim(),
-          productType: form.productType,
-          stock: BigInt(isNaN(stock) ? 0 : stock),
-          image: null,
-        });
-        toast.success('Product created!');
+        await addProduct.mutateAsync({ storeId, product: productData });
       }
       onSuccess?.();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save product');
+    } catch {
+      setError('Failed to save product. Please try again.');
     }
   };
 
-  const isPending = createProduct.isPending || updateProduct.isPending;
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label className="font-sans text-sm">
-            Title <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            value={form.title}
-            onChange={(e) => handleChange('title', e.target.value)}
-            placeholder="Product title"
-            className="font-sans text-sm border-border"
-            disabled={isPending}
-          />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div>
+        <Label htmlFor="title">Title</Label>
+        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required className="mt-1" />
+      </div>
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1" rows={3} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="price">Price (USD)</Label>
+          <Input id="price" type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} required className="mt-1" />
         </div>
-        <div className="space-y-1.5">
-          <Label className="font-sans text-sm">
-            Category <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            value={form.category}
-            onChange={(e) => handleChange('category', e.target.value)}
-            placeholder="e.g. Perfume"
-            className="font-sans text-sm border-border"
-            disabled={isPending}
-          />
+        <div>
+          <Label htmlFor="stock">Stock</Label>
+          <Input id="stock" type="number" min="0" value={stock} onChange={(e) => setStock(e.target.value)} required className="mt-1" />
         </div>
       </div>
-
-      <div className="space-y-1.5">
-        <Label className="font-sans text-sm">Description</Label>
-        <Textarea
-          value={form.description}
-          onChange={(e) => handleChange('description', e.target.value)}
-          placeholder="Describe your product…"
-          rows={3}
-          className="font-sans text-sm border-border resize-none"
-          disabled={isPending}
-        />
+      <div>
+        <Label htmlFor="category">Category</Label>
+        <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} className="mt-1" />
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="space-y-1.5">
-          <Label className="font-sans text-sm">
-            Price ($) <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.price}
-            onChange={(e) => handleChange('price', e.target.value)}
-            placeholder="0.00"
-            className="font-sans text-sm border-border"
-            disabled={isPending}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="font-sans text-sm">Stock</Label>
-          <Input
-            type="number"
-            min="0"
-            value={form.stock}
-            onChange={(e) => handleChange('stock', e.target.value)}
-            placeholder="0"
-            className="font-sans text-sm border-border"
-            disabled={isPending}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="font-sans text-sm">Type</Label>
-          <Select
-            value={form.productType}
-            onValueChange={(v) => handleChange('productType', v)}
-            disabled={isPending}
-          >
-            <SelectTrigger className="font-sans text-sm border-border">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ProductType.physical}>Physical</SelectItem>
-              <SelectItem value={ProductType.digital}>Digital</SelectItem>
-              <SelectItem value={ProductType.service}>Service</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div>
+        <Label htmlFor="type">Product Type</Label>
+        <Select value={productType} onValueChange={setProductType}>
+          <SelectTrigger className="mt-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="physical">Physical</SelectItem>
+            <SelectItem value="digital">Digital</SelectItem>
+            <SelectItem value="service">Service</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-
-      <div className="space-y-1.5">
-        <Label className="font-sans text-sm">Image URL</Label>
-        <Input
-          value={form.imageUrl}
-          onChange={(e) => handleChange('imageUrl', e.target.value)}
-          placeholder="https://example.com/image.jpg"
-          className="font-sans text-sm border-border"
-          disabled={isPending}
-        />
-      </div>
-
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2 justify-end">
         {onCancel && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isPending}
-            className="font-sans border-border"
-          >
-            Cancel
-          </Button>
+          <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         )}
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="font-sans bg-gold text-background hover:bg-gold/90"
-        >
-          {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          {product ? 'Update Product' : 'Create Product'}
+        <Button type="submit" disabled={addProduct.isPending || updateProduct.isPending}>
+          {(addProduct.isPending || updateProduct.isPending) ? (
+            <span className="flex items-center gap-2">
+              <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              Saving…
+            </span>
+          ) : isEditing ? 'Update Product' : 'Add Product'}
         </Button>
       </div>
     </form>

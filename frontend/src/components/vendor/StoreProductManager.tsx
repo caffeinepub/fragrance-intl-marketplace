@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Product, ProductVariant } from '../../types';
+import type { ProductVariant } from '../../types';
 import { ProductType } from '../../types';
 import {
   useListStoreProducts,
@@ -7,6 +7,7 @@ import {
   useUpdateStoreProduct,
   useDeleteStoreProduct,
 } from '../../hooks/useQueries';
+import type { Product as BackendProduct } from '../../backend';
 import {
   Table,
   TableBody,
@@ -86,19 +87,6 @@ const emptyVariantRow = (): VariantFormRow => ({
   stockAdjustment: '0',
 });
 
-function productTypeLabel(type: ProductType): string {
-  switch (type) {
-    case ProductType.physical:
-      return 'Physical';
-    case ProductType.digital:
-      return 'Digital';
-    case ProductType.service:
-      return 'Service';
-    default:
-      return type;
-  }
-}
-
 function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -113,10 +101,87 @@ function getErrorMessage(err: unknown): string {
   return 'An unexpected error occurred.';
 }
 
+/** Convert a backend Product to display-friendly values */
+function backendProductToDisplay(p: BackendProduct): {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  productType: string;
+  stock: number;
+  image: string | null;
+  status: string;
+  variants: ProductVariant[];
+} {
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    price: Number(p.price),
+    category: p.category,
+    productType: typeof p.productType === 'object'
+      ? Object.keys(p.productType as object)[0]
+      : String(p.productType),
+    stock: Number(p.stock),
+    image: p.image ? p.image.toString() : null,
+    status: typeof p.status === 'object'
+      ? Object.keys(p.status as object)[0]
+      : String(p.status),
+    variants: (p.variants ?? []).map(v => ({
+      name: v.name,
+      value: v.value,
+      priceAdjustment: Number(v.priceAdjustment),
+      stockAdjustment: Number(v.stockAdjustment),
+    })),
+  };
+}
+
+/** Build a backend Product from form data */
+function buildBackendProduct(
+  id: string,
+  vendorId: string,
+  form: ProductFormState,
+  variants: ProductVariant[],
+  existingImage?: string | null,
+): BackendProduct {
+  return {
+    id,
+    vendorId,
+    title: form.title.trim(),
+    description: form.description.trim(),
+    price: BigInt(Math.round(parseFloat(form.price) * 100)),
+    category: form.category.trim(),
+    productType: { [form.productType]: null } as unknown as BackendProduct['productType'],
+    stock: BigInt(parseInt(form.stock, 10) || 0),
+    image: undefined,
+    status: { active: null } as unknown as BackendProduct['status'],
+    variants: variants.map(v => ({
+      name: v.name,
+      value: v.value,
+      priceAdjustment: BigInt(Math.round(v.priceAdjustment)),
+      stockAdjustment: BigInt(Math.round(v.stockAdjustment)),
+    })),
+  };
+}
+
+interface DisplayProduct {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  productType: string;
+  stock: number;
+  image: string | null;
+  status: string;
+  variants: ProductVariant[];
+}
+
 interface InlineProductFormProps {
   storeId: string;
   vendorId: string;
-  product?: Product;
+  product?: DisplayProduct;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -138,14 +203,13 @@ function InlineProductForm({
         description: product.description,
         price: (product.price / 100).toFixed(2),
         category: product.category,
-        productType: product.productType,
+        productType: product.productType as ProductType,
         stock: String(product.stock),
       };
     }
     return emptyForm();
   });
 
-  // Initialize variant rows from existing product variants
   const [variantRows, setVariantRows] = useState<VariantFormRow[]>(() => {
     if (product && product.variants && product.variants.length > 0) {
       return product.variants.map((v) => ({
@@ -186,14 +250,11 @@ function InlineProductForm({
     }
 
     const price = parseFloat(form.price);
-    const stock = parseInt(form.stock, 10);
-
     if (isNaN(price) || price < 0) {
       toast.error('Please enter a valid price');
       return;
     }
 
-    // Validate variant rows
     for (let i = 0; i < variantRows.length; i++) {
       const row = variantRows[i];
       if (!row.name.trim() || !row.value.trim()) {
@@ -202,7 +263,6 @@ function InlineProductForm({
       }
     }
 
-    // Build variants array
     const variants: ProductVariant[] = variantRows.map((row) => ({
       name: row.name.trim(),
       value: row.value.trim(),
@@ -210,26 +270,15 @@ function InlineProductForm({
       stockAdjustment: parseInt(row.stockAdjustment || '0', 10) || 0,
     }));
 
-    const productData: Product = {
-      id: product?.id ?? `product_${Date.now()}`,
-      vendorId,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      price: Math.round(price * 100),
-      category: form.category.trim(),
-      productType: form.productType,
-      stock: isNaN(stock) ? 0 : stock,
-      image: product?.image ?? null,
-      status: product?.status ?? 'active',
-      variants,
-    };
+    const productId = product?.id ?? `product_${Date.now()}`;
+    const backendProduct = buildBackendProduct(productId, vendorId, form, variants, product?.image);
 
     try {
       if (product) {
-        await updateProduct.mutateAsync({ storeId, product: productData });
+        await updateProduct.mutateAsync({ storeId, product: backendProduct });
         toast.success('Product updated successfully');
       } else {
-        await addProduct.mutateAsync({ storeId, product: productData });
+        await addProduct.mutateAsync({ storeId, product: backendProduct });
         toast.success('Product added successfully');
       }
       onSuccess();
@@ -245,7 +294,6 @@ function InlineProductForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Basic fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="font-sans text-sm">
@@ -328,7 +376,6 @@ function InlineProductForm({
         </div>
       </div>
 
-      {/* Variants Section */}
       <Separator />
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -362,28 +409,15 @@ function InlineProductForm({
           </p>
         ) : (
           <div className="space-y-2">
-            {/* Header row */}
             <div className="grid grid-cols-[1fr_1fr_100px_80px_32px] gap-2 px-1">
-              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">
-                Name
-              </span>
-              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">
-                Value
-              </span>
-              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">
-                Price Adj ($)
-              </span>
-              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">
-                Stock Adj
-              </span>
+              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">Name</span>
+              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">Value</span>
+              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">Price Adj ($)</span>
+              <span className="font-sans text-[11px] uppercase tracking-wide text-muted-foreground">Stock Adj</span>
               <span />
             </div>
-
             {variantRows.map((row, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-[1fr_1fr_100px_80px_32px] gap-2 items-center"
-              >
+              <div key={index} className="grid grid-cols-[1fr_1fr_100px_80px_32px] gap-2 items-center">
                 <Input
                   value={row.name}
                   onChange={(e) => handleVariantChange(index, 'name', e.target.value)}
@@ -451,19 +485,24 @@ function InlineProductForm({
 }
 
 export default function StoreProductManager({ storeId, vendorId }: StoreProductManagerProps) {
-  const { data: products, isLoading, isError } = useListStoreProducts(storeId);
+  const { data: rawProducts, isLoading, isError } = useListStoreProducts(storeId);
   const deleteProduct = useDeleteStoreProduct();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<DisplayProduct | undefined>(undefined);
+  const [deleteTarget, setDeleteTarget] = useState<DisplayProduct | null>(null);
+
+  // Convert backend products to display format
+  const products: DisplayProduct[] = (rawProducts ?? []).map(p =>
+    backendProductToDisplay(p as BackendProduct)
+  );
 
   const handleAddClick = () => {
     setEditingProduct(undefined);
     setDialogOpen(true);
   };
 
-  const handleEditClick = (product: Product) => {
+  const handleEditClick = (product: DisplayProduct) => {
     setEditingProduct(product);
     setDialogOpen(true);
   };
@@ -495,12 +534,11 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Package className="w-5 h-5 text-gold" />
           <h3 className="font-serif text-lg text-foreground">Store Products</h3>
-          {products && products.length > 0 && (
+          {products.length > 0 && (
             <Badge variant="secondary" className="font-sans text-xs">
               {products.length}
             </Badge>
@@ -516,7 +554,6 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
         </Button>
       </div>
 
-      {/* Product Table */}
       {isLoading ? (
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => (
@@ -527,7 +564,7 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
         <div className="text-center py-8 text-destructive font-sans text-sm">
           Failed to load products. Please try again.
         </div>
-      ) : !products || products.length === 0 ? (
+      ) : products.length === 0 ? (
         <div className="text-center py-10 border border-dashed border-border rounded-lg">
           <Package className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="font-sans text-sm text-muted-foreground">No products yet.</p>
@@ -543,60 +580,41 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
                 <TableHead className="font-sans text-xs uppercase tracking-wide">Title</TableHead>
                 <TableHead className="font-sans text-xs uppercase tracking-wide">Category</TableHead>
                 <TableHead className="font-sans text-xs uppercase tracking-wide">Type</TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wide text-right">
-                  Price
-                </TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wide text-right">
-                  Stock
-                </TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wide text-center">
-                  Variants
-                </TableHead>
-                <TableHead className="font-sans text-xs uppercase tracking-wide text-right">
-                  Actions
-                </TableHead>
+                <TableHead className="font-sans text-xs uppercase tracking-wide text-right">Price</TableHead>
+                <TableHead className="font-sans text-xs uppercase tracking-wide text-right">Stock</TableHead>
+                <TableHead className="font-sans text-xs uppercase tracking-wide text-center">Variants</TableHead>
+                <TableHead className="font-sans text-xs uppercase tracking-wide text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {products.map((product) => (
-                <TableRow key={product.id} className="hover:bg-muted/20 transition-colors">
-                  <TableCell className="font-sans text-sm font-medium text-foreground">
-                    {product.title}
-                  </TableCell>
-                  <TableCell className="font-sans text-sm text-muted-foreground">
-                    {product.category}
-                  </TableCell>
+                <TableRow key={product.id}>
+                  <TableCell className="font-sans text-sm font-medium">{product.title}</TableCell>
+                  <TableCell className="font-sans text-xs text-muted-foreground">{product.category}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="font-sans text-xs capitalize">
-                      {productTypeLabel(product.productType)}
+                      {product.productType}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-sans text-sm text-right tabular-nums">
+                  <TableCell className="font-sans text-sm text-right text-gold">
                     {formatPrice(product.price)}
                   </TableCell>
-                  <TableCell className="font-sans text-sm text-right tabular-nums">
-                    {product.stock}
-                  </TableCell>
+                  <TableCell className="font-sans text-sm text-right">{product.stock}</TableCell>
                   <TableCell className="text-center">
-                    {product.variants && product.variants.length > 0 ? (
-                      <Badge
-                        variant="secondary"
-                        className="font-sans text-xs"
-                        title={product.variants.map((v) => `${v.name}: ${v.value}`).join(', ')}
-                      >
-                        <Layers className="w-3 h-3 mr-1" />
+                    {product.variants.length > 0 ? (
+                      <Badge variant="secondary" className="font-sans text-xs">
                         {product.variants.length}
                       </Badge>
                     ) : (
-                      <span className="font-sans text-xs text-muted-foreground">—</span>
+                      <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
+                  <TableCell>
+                    <div className="flex items-center gap-1 justify-end">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
                         onClick={() => handleEditClick(product)}
                         title="Edit product"
                       >
@@ -605,16 +623,11 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
                         onClick={() => setDeleteTarget(product)}
                         title="Delete product"
-                        disabled={deleteProduct.isPending && deleteTarget?.id === product.id}
                       >
-                        {deleteProduct.isPending && deleteTarget?.id === product.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
-                        )}
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </TableCell>
@@ -625,17 +638,15 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
         </div>
       )}
 
-      {/* Add / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Edit/Add Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) handleFormCancel(); }}>
+        <DialogContent className="sm:max-w-2xl bg-card border-border max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-serif text-xl">
-              {editingProduct ? 'Edit Product' : 'Add New Product'}
+            <DialogTitle className="font-serif text-xl text-foreground">
+              {editingProduct ? 'Edit Product' : 'Add Product'}
             </DialogTitle>
             <DialogDescription className="font-sans text-sm text-muted-foreground">
-              {editingProduct
-                ? 'Update the details and variants for this product.'
-                : 'Fill in the details to add a new product to this store.'}
+              {editingProduct ? 'Update the product details below.' : 'Fill in the details for your new product.'}
             </DialogDescription>
           </DialogHeader>
           <InlineProductForm
@@ -649,25 +660,22 @@ export default function StoreProductManager({ storeId, vendorId }: StoreProductM
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-serif">Delete Product?</AlertDialogTitle>
-            <AlertDialogDescription className="font-sans text-sm">
-              Are you sure you want to delete{' '}
-              <span className="font-medium text-foreground">"{deleteTarget?.title}"</span>? This
-              action cannot be undone.
+            <AlertDialogTitle className="font-serif text-foreground">Delete Product</AlertDialogTitle>
+            <AlertDialogDescription className="font-sans text-muted-foreground">
+              Are you sure you want to delete "{deleteTarget?.title}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="font-sans">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="font-sans border-border">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-sans"
+              className="font-sans bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteProduct.isPending}
             >
-              {deleteProduct.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
+              {deleteProduct.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

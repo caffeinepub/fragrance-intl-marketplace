@@ -1,98 +1,63 @@
 import React from 'react';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { useNavigate } from '@tanstack/react-router';
+import { Shield, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useIsCallerAdmin } from '../hooks/useQueries';
-import AccessDenied from '../components/common/AccessDenied';
 import ApprovalDashboard from '../components/admin/ApprovalDashboard';
-import RoleAssignmentForm from '../components/admin/RoleAssignmentForm';
 import OrderManagementPanel from '../components/admin/OrderManagementPanel';
 import PayoutManagementPanel from '../components/admin/PayoutManagementPanel';
 import AuctionManagementPanel from '../components/admin/AuctionManagementPanel';
 import TradeOfferManagementPanel from '../components/admin/TradeOfferManagementPanel';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
-import { Shield } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { identity } = useInternetIdentity();
+  const navigate = useNavigate();
   const { data: isAdmin, isLoading } = useIsCallerAdmin();
-
-  if (!identity) {
-    return <AccessDenied message="Please sign in to access the admin dashboard." />;
-  }
 
   if (isLoading) {
     return (
-      <main className="container mx-auto px-4 py-10">
-        <Skeleton className="h-8 w-48 mb-6" />
-        <Skeleton className="h-64 w-full" />
-      </main>
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="h-8 w-48 bg-muted animate-pulse rounded mb-4" />
+        <div className="h-64 bg-muted animate-pulse rounded-xl" />
+      </div>
     );
   }
 
   if (!isAdmin) {
     return (
-      <AccessDenied message="You do not have admin privileges to access this dashboard." />
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <div className="flex justify-center mb-4">
+          <div className="p-4 bg-destructive/10 rounded-full">
+            <AlertTriangle className="h-12 w-12 text-destructive" />
+          </div>
+        </div>
+        <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+        <p className="text-muted-foreground mb-6">You don't have permission to access the admin dashboard.</p>
+        <Button variant="outline" onClick={() => navigate({ to: '/' })}>
+          Go Home
+        </Button>
+      </div>
     );
   }
 
   return (
-    <main className="container mx-auto px-4 py-10 max-w-6xl">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="w-10 h-10 rounded bg-gold/10 flex items-center justify-center">
-          <Shield className="w-5 h-5 text-gold" />
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="flex items-center gap-3 mb-8">
+        <div className="p-2 bg-primary/10 rounded-lg">
+          <Shield className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <p className="font-sans text-xs text-gold uppercase tracking-[0.2em]">Administration</p>
-          <h1 className="font-serif text-3xl text-foreground">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-muted-foreground text-sm">Manage users, orders, and platform settings</p>
         </div>
       </div>
 
       <div className="space-y-8">
-        {/* Vendor Approvals */}
-        <div className="bg-card border border-border rounded p-6">
-          <h2 className="font-serif text-xl text-foreground mb-5">Vendor Approval Requests</h2>
-          <ApprovalDashboard />
-        </div>
-
-        <Separator />
-
-        {/* Role Assignment */}
-        <div className="bg-card border border-border rounded p-6">
-          <RoleAssignmentForm />
-        </div>
-
-        <Separator />
-
-        {/* Order Management */}
-        <div className="bg-card border border-border rounded p-6">
-          <h2 className="font-serif text-xl text-foreground mb-5">Order Management</h2>
-          <OrderManagementPanel />
-        </div>
-
-        <Separator />
-
-        {/* Payout Management */}
-        <div className="bg-card border border-border rounded p-6">
-          <h2 className="font-serif text-xl text-foreground mb-5">Payout Management</h2>
-          <PayoutManagementPanel />
-        </div>
-
-        <Separator />
-
-        {/* Auction Management */}
-        <div className="bg-card border border-border rounded p-6">
-          <h2 className="font-serif text-xl text-foreground mb-5">Auction Management</h2>
-          <AuctionManagementPanel />
-        </div>
-
-        <Separator />
-
-        {/* Trade Offer Management */}
-        <div className="bg-card border border-border rounded p-6">
-          <h2 className="font-serif text-xl text-foreground mb-5">Trade Offer Management</h2>
-          <TradeOfferManagementPanel />
-        </div>
+        <ApprovalDashboard />
+        <OrderManagementPanel />
+        <PayoutManagementPanel />
+        <AuctionManagementPanel />
+        <TradeOfferManagementPanel />
       </div>
-    </main>
+    </div>
   );
 }

@@ -1,89 +1,46 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T16:25:29.093Z",
+  "generatedAt": "2026-02-27T03:26:39.580Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 6,
-    "implemented": 3,
+    "total": 2,
+    "implemented": 2,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Extend the backend Product data type to support variants (e.g., size, concentration, bottle type) as a list of variant options, each with a name, value, optional price adjustment, and optional stock quantity. Store variants as part of the product record.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "summary": "On the ProductDetail page, when the user selects a variant, dynamically update the displayed price and stock availability to reflect the selected variant's price and stock values without a page reload.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/ProductDetail.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/ProductDetail.tsx"
+        ]
       },
       {
         "id": "REQ-2",
-        "summary": "Add backend functions to create, update, and delete variants on a product. Only the product owner (vendor) or an admin may modify variants.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-3",
-        "summary": "Update the ProductForm component in the vendor dashboard to allow vendors to add, edit, and remove product variants inline. Each variant row should have fields for name, value, price adjustment (optional), and stock (optional).",
-        "status": "missing",
-        "plannedFiles": [
-          "frontend/src/components/vendor/ProductForm.tsx"
-        ],
-        "matchedFiles": []
-      },
-      {
-        "id": "REQ-4",
-        "summary": "Update the ProductCard and product detail UI to display available variants as selectable options (e.g., a dropdown or button group). When a variant is selected, show the adjusted price and variant-specific stock availability.",
+        "summary": "On the ProductCard component, when the user selects a variant (if variant selection is exposed on the card), update the displayed price and stock badge to reflect the selected variant's values.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/products/ProductCard.tsx",
-          "frontend/src/pages/ProductListing.tsx"
+          "frontend/src/components/products/ProductCard.tsx"
         ],
         "matchedFiles": [
           "frontend/src/components/products/ProductCard.tsx"
-        ]
-      },
-      {
-        "id": "REQ-5",
-        "summary": "Update the TypeScript types in frontend/src/types/index.ts to include a ProductVariant type (name, value, priceAdjustment, stock) and extend the Product type to include an optional variants array.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/types/index.ts"
-        ],
-        "matchedFiles": [
-          "frontend/src/types/index.ts"
-        ]
-      },
-      {
-        "id": "REQ-6",
-        "summary": "Add React Query hooks in useQueries.ts for addProductVariant, updateProductVariant, and removeProductVariant mutations, and ensure product queries re-fetch after any variant mutation.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts"
-        ],
-        "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts"
         ]
       }
     ]
   },
   "changedFiles": [
-    "backend/main.mo",
-    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
     "frontend/src/components/products/ProductCard.tsx",
-    "frontend/src/components/vendor/StoreProductManager.tsx",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
-    "frontend/src/hooks/useQueries.ts",
-    "frontend/src/types/index.ts",
+    "frontend/src/pages/ProductDetail.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

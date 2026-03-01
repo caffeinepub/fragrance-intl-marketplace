@@ -1,46 +1,137 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import {
-  type UserProfile,
-  type StoreResponse,
-  ApprovalStatus,
-  UserRole,
-  type Product as BackendProduct,
-  type ProductVariant as BackendProductVariant,
-} from '../backend';
-import type { UserApprovalInfo } from '../backend';
-import type { Principal } from '@icp-sdk/core/principal';
-import { parseCheckoutSession, type CheckoutSession } from '../utils/stripe';
-import { useInternetIdentity } from './useInternetIdentity';
-import { toast } from 'sonner';
-import type {
-  VendorProfile,
-  Product,
-  ProductVariant,
-  CartItem,
-  Order,
-  Payout,
-  TransactionEntry,
-  SearchFilter,
+  Product as BackendProduct,
+  ProductVariant as BackendProductVariant,
   ProductType,
-  OrderStatus,
-  PayoutStatus,
-  Auction,
-  TradeOffer,
-} from '../types';
-import { ExternalBlob } from '../backend';
+  ProductStatus,
+  ApprovalStatus,
+  UserProfile,
+  StoreResponse,
+  ShoppingItem,
+  UserRole,
+} from '../backend';
+import { SearchFilter } from '../types/index';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ─── Type helpers ────────────────────────────────────────────────────────────
 
-function isAuthorizationError(err: unknown): boolean {
-  if (err instanceof Error) {
-    const msg = err.message.toLowerCase();
-    return msg.includes('unauthorized') || msg.includes('authorization');
-  }
-  return false;
+export type LocalProduct = {
+  id: string;
+  storeId: string;
+  vendorId: string;
+  title: string;
+  description: string;
+  price: number;
+  stock: number;
+  category: string;
+  productType: ProductType;
+  status: ProductStatus;
+  image?: any;
+  variants: Array<{
+    name: string;
+    value: string;
+    priceAdjustment: number;
+    stockAdjustment: number;
+  }>;
+};
+
+export type LocalOrder = {
+  id: string;
+  customer: string;
+  items: Array<{ productId: string; quantity: number; variantIndex?: number; variantLabel?: string }>;
+  total: number;
+  status: string;
+  shippingAddress: string;
+  timestamp: number;
+  paymentUrl?: string;
+  paymentStatus: string;
+  paymentSessionId?: string;
+  createdAt: number;
+  updatedAt: number;
+  statusHistory: string[];
+  paymentHistory: string[];
+};
+
+export type LocalAuction = {
+  id: string;
+  productId: string;
+  storeId: string;
+  vendorId: string;
+  title: string;
+  description: string;
+  startingPrice: number;
+  currentPrice: number;
+  currentBid?: number;
+  reservePrice?: number;
+  currentBidder?: string;
+  minBidIncrement: number;
+  endTime: number;
+  status: string;
+  bids: Array<{ bidder: any; amount: number; timestamp: number }>;
+  winnerId?: any;
+  createdAt: number;
+};
+
+export type LocalTradeOffer = {
+  id: string;
+  offererId: any;
+  recipientId: any;
+  offeredItems: Array<{ productId: string; quantity: number }>;
+  requestedItems: Array<{ productId: string; quantity: number }>;
+  cashAdjustment: number;
+  status: string;
+  note?: string;
+  createdAt: number;
+  updatedAt: number;
+  counterOffer?: any;
+};
+
+export type LocalPayout = {
+  payoutId: string;
+  vendorId: string;
+  orderId: string;
+  grossAmount: number;
+  commissionAmount: number;
+  netAmount: number;
+  status: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type VendorTransaction = {
+  orderId: string;
+  buyer: any;
+  vendor: any;
+  items: Array<{ productId: string; quantity: number }>;
+  totalAmount: number;
+  commissionFee: number;
+  netPayout: number;
+  timestamp: number;
+};
+
+function backendProductToLocal(p: BackendProduct, storeId: string): LocalProduct {
+  return {
+    id: p.id,
+    storeId,
+    vendorId: p.vendorId,
+    title: p.title,
+    description: p.description,
+    price: Number(p.price),
+    stock: Number(p.stock),
+    category: p.category,
+    productType: p.productType,
+    status: p.status,
+    image: p.image,
+    variants: (p.variants || []).map((v) => ({
+      name: v.name,
+      value: v.value,
+      priceAdjustment: Number(v.priceAdjustment),
+      stockAdjustment: Number(v.stockAdjustment),
+    })),
+  };
 }
 
-// ── User Profile ─────────────────────────────────────────────────────────────
+// ─── User Profile ─────────────────────────────────────────────────────────────
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
@@ -77,16 +168,16 @@ export function useSaveCallerUserProfile() {
   });
 }
 
-// ── Role & Admin ──────────────────────────────────────────────────────────────
+// ─── Approval ─────────────────────────────────────────────────────────────────
 
-export function useGetCallerUserRole() {
+export function useIsCallerApproved() {
   const { actor, isFetching } = useActor();
 
-  return useQuery<UserRole>({
-    queryKey: ['callerUserRole'],
+  return useQuery<boolean>({
+    queryKey: ['isCallerApproved'],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.getCallerUserRole();
+      if (!actor) return false;
+      return actor.isCallerApproved();
     },
     enabled: !!actor && !isFetching,
   });
@@ -98,45 +189,10 @@ export function useIsCallerAdmin() {
   return useQuery<boolean>({
     queryKey: ['isCallerAdmin'],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) return false;
       return actor.isCallerAdmin();
     },
     enabled: !!actor && !isFetching,
-  });
-}
-
-export function useAssignRole() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ user, role }: { user: Principal; role: UserRole }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.assignCallerUserRole(user, role);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['callerUserRole'] });
-      queryClient.invalidateQueries({ queryKey: ['isCallerAdmin'] });
-    },
-  });
-}
-
-// ── Approval ──────────────────────────────────────────────────────────────────
-
-export function useIsCallerApproved() {
-  const { actor, isFetching } = useActor();
-
-  return useQuery<boolean>({
-    queryKey: ['isCallerApproved'],
-    queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.isCallerApproved();
-    },
-    enabled: !!actor && !isFetching,
-    // Always fetch fresh data so approval status is reflected immediately
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
   });
 }
 
@@ -151,7 +207,6 @@ export function useRequestApproval() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['isCallerApproved'] });
-      queryClient.invalidateQueries({ queryKey: ['approvals'] });
     },
   });
 }
@@ -159,15 +214,13 @@ export function useRequestApproval() {
 export function useListApprovals() {
   const { actor, isFetching } = useActor();
 
-  return useQuery<UserApprovalInfo[]>({
-    queryKey: ['approvals'],
+  return useQuery({
+    queryKey: ['listApprovals'],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) return [];
       return actor.listApprovals();
     },
     enabled: !!actor && !isFetching,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 }
 
@@ -176,728 +229,38 @@ export function useSetApproval() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ user, status }: { user: Principal; status: ApprovalStatus }) => {
+    mutationFn: async ({ user, status }: { user: any; status: ApprovalStatus }) => {
       if (!actor) throw new Error('Actor not available');
       return actor.setApproval(user, status);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['approvals'] });
-      queryClient.invalidateQueries({ queryKey: ['isCallerApproved'] });
+      queryClient.invalidateQueries({ queryKey: ['listApprovals'] });
     },
   });
 }
 
-// ── Vendor Profile (local state only — backend methods removed) ───────────────
-
-export function useGetVendorProfile(_id: string | null): {
-  data: VendorProfile | undefined;
-  isLoading: boolean;
-} {
-  return { data: undefined, isLoading: false };
-}
-
-export function useCreateVendorProfile() {
-  return useMutation({
-    mutationFn: async (_params: {
-      id: string;
-      name: string;
-      description: string;
-      logo: ExternalBlob | null;
-      contact: string;
-    }) => {
-      throw new Error('Vendor profile creation not available in current backend version');
-    },
-  });
-}
-
-export function useUpdateVendorProfile() {
-  return useMutation({
-    mutationFn: async (_params: {
-      id: string;
-      name: string;
-      description: string;
-      logo: ExternalBlob | null;
-      contact: string;
-    }) => {
-      throw new Error('Vendor profile update not available in current backend version');
-    },
-  });
-}
-
-export function useApproveVendorProfile() {
-  return useMutation({
-    mutationFn: async (_id: string) => {
-      throw new Error('Vendor profile approval not available in current backend version');
-    },
-  });
-}
-
-// ── Products (stubbed — backend methods removed) ──────────────────────────────
-
-export function useSearchProducts(_filter: SearchFilter) {
-  return useQuery<Product[]>({
-    queryKey: ['products', _filter],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useCreateProduct() {
-  return useMutation({
-    mutationFn: async (_params: {
-      id: string;
-      vendorId: string;
-      title: string;
-      description: string;
-      price: bigint;
-      category: string;
-      productType: ProductType;
-      stock: bigint;
-      image: ExternalBlob | null;
-    }) => {
-      throw new Error('Product creation not available in current backend version');
-    },
-  });
-}
-
-export function useUpdateProduct() {
-  return useMutation({
-    mutationFn: async (_params: {
-      id: string;
-      title: string;
-      description: string;
-      price: bigint;
-      category: string;
-      productType: ProductType;
-      stock: bigint;
-      image: ExternalBlob | null;
-    }) => {
-      throw new Error('Product update not available in current backend version');
-    },
-  });
-}
-
-export function useDeleteProduct() {
-  return useMutation({
-    mutationFn: async (_id: string) => {
-      throw new Error('Product deletion not available in current backend version');
-    },
-  });
-}
-
-// ── Store Products ────────────────────────────────────────────────────────────
-
-/** Convert a backend ProductVariant (bigint fields) to a local ProductVariant (number fields) */
-function backendVariantToLocal(v: BackendProductVariant): ProductVariant {
-  return {
-    name: v.name,
-    value: v.value,
-    priceAdjustment: Number(v.priceAdjustment),
-    stockAdjustment: Number(v.stockAdjustment),
-  };
-}
-
-/** Convert a local ProductVariant (number fields) to a backend ProductVariant (bigint fields) */
-function localVariantToBackend(v: ProductVariant): BackendProductVariant {
-  return {
-    name: v.name,
-    value: v.value,
-    priceAdjustment: BigInt(Math.round(v.priceAdjustment)),
-    stockAdjustment: BigInt(Math.round(v.stockAdjustment)),
-  };
-}
-
-/** Convert a backend Product (bigint fields) to a local Product (number fields) */
-function backendProductToLocal(p: BackendProduct): Product {
-  return {
-    id: p.id,
-    vendorId: p.vendorId,
-    title: p.title,
-    description: p.description,
-    price: Number(p.price),
-    category: p.category,
-    productType: p.productType as ProductType,
-    stock: Number(p.stock),
-    image: p.image ? p.image.toString() : null,
-    status: p.status as 'active' | 'inactive',
-    variants: (p.variants ?? []).map(backendVariantToLocal),
-  };
-}
-
-/** Convert a local Product (number fields) to a backend Product (bigint fields) */
-function localProductToBackend(p: Product): BackendProduct {
-  return {
-    id: p.id,
-    vendorId: p.vendorId,
-    title: p.title,
-    description: p.description,
-    price: BigInt(Math.round(p.price)),
-    category: p.category,
-    productType: p.productType as BackendProduct['productType'],
-    stock: BigInt(Math.round(p.stock)),
-    image: undefined,
-    status: p.status as BackendProduct['status'],
-    variants: (p.variants ?? []).map(localVariantToBackend),
-  };
-}
-
-export function useListStoreProducts(storeId: string | null) {
-  const { actor, isFetching } = useActor();
-
-  return useQuery<Product[]>({
-    queryKey: ['storeProducts', storeId],
-    queryFn: async () => {
-      if (!actor || !storeId) return [];
-      const results = await actor.listStoreProducts(storeId);
-      return results.map(backendProductToLocal);
-    },
-    enabled: !!actor && !isFetching && !!storeId,
-  });
-}
-
-export function useAddProductToStore() {
+export function useAssignRole() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ storeId, product }: { storeId: string; product: Product }) => {
+    mutationFn: async ({ user, role }: { user: any; role: UserRole }) => {
       if (!actor) throw new Error('Actor not available');
-      try {
-        return await actor.addProductToStore(storeId, localProductToBackend(product));
-      } catch (err: unknown) {
-        if (isAuthorizationError(err)) {
-          throw new Error('UNAUTHORIZED');
-        }
-        throw err;
-      }
+      return actor.assignCallerUserRole(user, role);
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
-    },
-    onError: (err: Error) => {
-      if (err.message === 'UNAUTHORIZED') {
-        toast.error('You do not have permission to manage products for this store.');
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listApprovals'] });
     },
   });
 }
 
-export function useUpdateStoreProduct() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
+// ─── Stores ───────────────────────────────────────────────────────────────────
 
-  return useMutation({
-    mutationFn: async ({ storeId, product }: { storeId: string; product: Product }) => {
-      if (!actor) throw new Error('Actor not available');
-      try {
-        return await actor.updateStoreProduct(storeId, localProductToBackend(product));
-      } catch (err: unknown) {
-        if (isAuthorizationError(err)) {
-          throw new Error('UNAUTHORIZED');
-        }
-        throw err;
-      }
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
-    },
-    onError: (err: Error) => {
-      if (err.message === 'UNAUTHORIZED') {
-        toast.error('You do not have permission to manage products for this store.');
-      }
-    },
-  });
-}
-
-export function useDeleteStoreProduct() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ storeId, productId }: { storeId: string; productId: string }) => {
-      if (!actor) throw new Error('Actor not available');
-      try {
-        return await actor.deleteStoreProduct(storeId, productId);
-      } catch (err: unknown) {
-        if (isAuthorizationError(err)) {
-          throw new Error('UNAUTHORIZED');
-        }
-        throw err;
-      }
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
-    },
-    onError: (err: Error) => {
-      if (err.message === 'UNAUTHORIZED') {
-        toast.error('You do not have permission to manage products for this store.');
-      }
-    },
-  });
-}
-
-// ── Product Variant Mutations ─────────────────────────────────────────────────
-
-export function useAddProductVariant() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      storeId,
-      productId,
-      variant,
-    }: {
-      storeId: string;
-      productId: string;
-      variant: ProductVariant;
-    }) => {
-      if (!actor) throw new Error('Actor not available');
-      try {
-        return await actor.addVariant(storeId, productId, localVariantToBackend(variant));
-      } catch (err: unknown) {
-        if (isAuthorizationError(err)) {
-          throw new Error('UNAUTHORIZED');
-        }
-        throw err;
-      }
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
-    },
-    onError: (err: Error) => {
-      if (err.message === 'UNAUTHORIZED') {
-        toast.error('You do not have permission to manage variants for this product.');
-      }
-    },
-  });
-}
-
-export function useUpdateProductVariant() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      storeId,
-      productId,
-      variantIndex,
-      variant,
-    }: {
-      storeId: string;
-      productId: string;
-      variantIndex: number;
-      variant: ProductVariant;
-    }) => {
-      if (!actor) throw new Error('Actor not available');
-      try {
-        return await actor.updateVariant(
-          storeId,
-          productId,
-          BigInt(variantIndex),
-          localVariantToBackend(variant),
-        );
-      } catch (err: unknown) {
-        if (isAuthorizationError(err)) {
-          throw new Error('UNAUTHORIZED');
-        }
-        throw err;
-      }
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
-    },
-    onError: (err: Error) => {
-      if (err.message === 'UNAUTHORIZED') {
-        toast.error('You do not have permission to manage variants for this product.');
-      }
-    },
-  });
-}
-
-export function useRemoveProductVariant() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      storeId,
-      productId,
-      variantIndex,
-    }: {
-      storeId: string;
-      productId: string;
-      variantIndex: number;
-    }) => {
-      if (!actor) throw new Error('Actor not available');
-      try {
-        return await actor.deleteVariant(storeId, productId, BigInt(variantIndex));
-      } catch (err: unknown) {
-        if (isAuthorizationError(err)) {
-          throw new Error('UNAUTHORIZED');
-        }
-        throw err;
-      }
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
-    },
-    onError: (err: Error) => {
-      if (err.message === 'UNAUTHORIZED') {
-        toast.error('You do not have permission to manage variants for this product.');
-      }
-    },
-  });
-}
-
-// ── Cart (stubbed) ────────────────────────────────────────────────────────────
-
-export function useGetCart() {
-  return useQuery<CartItem[]>({
-    queryKey: ['cart'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useAddToCart() {
-  return useMutation({
-    mutationFn: async (_params: { productId: string; quantity: bigint }) => {
-      throw new Error('Cart not available in current backend version');
-    },
-  });
-}
-
-export function useRemoveFromCart() {
-  return useMutation({
-    mutationFn: async (_productId: string) => {
-      throw new Error('Cart not available in current backend version');
-    },
-  });
-}
-
-// ── Orders (stubbed) ──────────────────────────────────────────────────────────
-
-export function usePlaceOrder() {
-  return useMutation({
-    mutationFn: async (_shippingAddress: string) => {
-      throw new Error('Order placement not available in current backend version');
-    },
-  });
-}
-
-export function useGetMyOrders() {
-  return useQuery<Order[]>({
-    queryKey: ['myOrders'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useGetOrder(_orderId: string | null) {
-  return useQuery<Order>({
-    queryKey: ['order', _orderId],
-    queryFn: async () => {
-      throw new Error('Order retrieval not available in current backend version');
-    },
-    enabled: false,
-  });
-}
-
-export function useGetAllOrders() {
-  return useQuery<Order[]>({
-    queryKey: ['allOrders'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useUpdateOrderStatus() {
-  return useMutation({
-    mutationFn: async (_params: { orderId: string; status: OrderStatus }) => {
-      throw new Error('Order status update not available in current backend version');
-    },
-  });
-}
-
-// ── Payouts (stubbed) ─────────────────────────────────────────────────────────
-
-export function useGetPayoutsForVendor(_vendorId: string | null) {
-  return useQuery<Payout[]>({
-    queryKey: ['vendorPayouts', _vendorId],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useGetAllPayouts() {
-  return useQuery<Payout[]>({
-    queryKey: ['allPayouts'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useInitiatePayout() {
-  return useMutation({
-    mutationFn: async (_orderId: string): Promise<string> => {
-      throw new Error('Payout initiation not available in current backend version');
-    },
-  });
-}
-
-export function useUpdatePayoutStatus() {
-  return useMutation({
-    mutationFn: async (_params: { payoutId: string; status: PayoutStatus }) => {
-      throw new Error('Payout status update not available in current backend version');
-    },
-  });
-}
-
-export function useGetCommissionRate() {
-  return useQuery<bigint>({
-    queryKey: ['commissionRate'],
-    queryFn: async () => BigInt(5),
-    enabled: false,
-  });
-}
-
-export function useSetCommissionRate() {
-  return useMutation({
-    mutationFn: async (_rate: bigint) => {
-      throw new Error('Commission rate update not available in current backend version');
-    },
-  });
-}
-
-// ── Transactions (stubbed) ────────────────────────────────────────────────────
-
-export function useCustomerTransactions() {
-  return useQuery<TransactionEntry[]>({
-    queryKey: ['customerTransactions'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useVendorTransactions() {
-  return useQuery<TransactionEntry[]>({
-    queryKey: ['vendorTransactions'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useOrderTransaction(_orderId: string | null) {
-  return useQuery<TransactionEntry | null>({
-    queryKey: ['orderTransaction', _orderId],
-    queryFn: async () => null,
-    enabled: false,
-  });
-}
-
-// ── Stripe ────────────────────────────────────────────────────────────────────
-
-export function useCreateStripeCheckoutSession() {
-  const { actor } = useActor();
-
-  return useMutation({
-    mutationFn: async ({
-      orderId,
-      successUrl,
-      cancelUrl,
-    }: {
-      orderId: string;
-      successUrl: string;
-      cancelUrl: string;
-    }): Promise<CheckoutSession> => {
-      if (!actor) throw new Error('Actor not available');
-      const result = await actor.createCheckoutSession(
-        [
-          {
-            productName: `Order ${orderId}`,
-            currency: 'usd',
-            quantity: BigInt(1),
-            priceInCents: BigInt(0),
-            productDescription: `Payment for order ${orderId}`,
-          },
-        ],
-        successUrl,
-        cancelUrl,
-      );
-      return parseCheckoutSession(result);
-    },
-  });
-}
-
-export function useConfirmStripePayment() {
-  const { actor } = useActor();
-
-  return useMutation({
-    mutationFn: async ({ sessionId }: { sessionId: string; orderId?: string }) => {
-      if (!actor) throw new Error('Actor not available');
-      const status = await actor.getStripeSessionStatus(sessionId);
-      if (status.__kind__ === 'failed') {
-        throw new Error(status.failed.error);
-      }
-      return status;
-    },
-  });
-}
-
-// ── Auctions (stubbed) ────────────────────────────────────────────────────────
-
-export function useGetAllAuctions() {
-  return useQuery<Auction[]>({
-    queryKey: ['allAuctions'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-// Alias for components that use the old name
-export const useListActiveAuctions = useGetAllAuctions;
-
-export function useGetAuction(_auctionId: string | null) {
-  return useQuery<Auction | null>({
-    queryKey: ['auction', _auctionId],
-    queryFn: async () => null,
-    enabled: false,
-  });
-}
-
-export function useGetVendorAuctions(_vendorId: string | null) {
-  return useQuery<Auction[]>({
-    queryKey: ['vendorAuctions', _vendorId],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useCreateAuction() {
-  return useMutation({
-    mutationFn: async (_params: {
-      productId: string;
-      startingPrice: bigint;
-      endTime: bigint;
-    }) => {
-      throw new Error('Auction creation not available in current backend version');
-    },
-  });
-}
-
-export function usePlaceBid() {
-  return useMutation({
-    mutationFn: async (_params: { auctionId: string; amount: bigint }) => {
-      throw new Error('Bid placement not available in current backend version');
-    },
-  });
-}
-
-export function useCancelAuction() {
-  return useMutation({
-    mutationFn: async (_auctionId: string) => {
-      throw new Error('Auction cancellation not available in current backend version');
-    },
-  });
-}
-
-export function useFinalizeAuction() {
-  return useMutation({
-    mutationFn: async (_auctionId: string) => {
-      throw new Error('Auction finalization not available in current backend version');
-    },
-  });
-}
-
-// ── Trade Offers (stubbed) ────────────────────────────────────────────────────
-
-export function useGetMyTradeOffers() {
-  return useQuery<TradeOffer[]>({
-    queryKey: ['myTradeOffers'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useGetAllTradeOffers() {
-  return useQuery<TradeOffer[]>({
-    queryKey: ['allTradeOffers'],
-    queryFn: async () => [],
-    enabled: false,
-  });
-}
-
-export function useCreateTradeOffer() {
-  return useMutation({
-    mutationFn: async (_params: {
-      targetPrincipal: string;
-      offeredItems: Array<{ productId: string; quantity: bigint }>;
-      requestedItems: Array<{ productId: string; quantity: bigint }>;
-      cashAdjustment: bigint;
-      note: string;
-    }) => {
-      throw new Error('Trade offer creation not available in current backend version');
-    },
-  });
-}
-
-export function useAcceptTradeOffer() {
-  return useMutation({
-    mutationFn: async (_offerId: string) => {
-      throw new Error('Trade offer acceptance not available in current backend version');
-    },
-  });
-}
-
-export function useRejectTradeOffer() {
-  return useMutation({
-    mutationFn: async (_offerId: string) => {
-      throw new Error('Trade offer rejection not available in current backend version');
-    },
-  });
-}
-
-export function useCancelTradeOffer() {
-  return useMutation({
-    mutationFn: async (_offerId: string) => {
-      throw new Error('Trade offer cancellation not available in current backend version');
-    },
-  });
-}
-
-export function useCounterTradeOffer() {
-  return useMutation({
-    mutationFn: async (_params: {
-      offerId: string;
-      offeredItems: Array<{ productId: string; quantity: bigint }>;
-      requestedItems: Array<{ productId: string; quantity: bigint }>;
-      cashAdjustment: bigint;
-      note: string;
-    }) => {
-      throw new Error('Trade offer counter not available in current backend version');
-    },
-  });
-}
-
-export function useRespondToTradeOffer() {
-  return useMutation({
-    mutationFn: async (_params: {
-      offerId: string;
-      response: 'accept' | 'reject' | 'cancel' | 'counter';
-    }) => {
-      throw new Error('Trade offer response not available in current backend version');
-    },
-  });
-}
-
-// ── Stores ────────────────────────────────────────────────────────────────────
-
-export function useGetStoresByVendor(vendorId: Principal | null) {
+export function useGetStoresByVendor(vendorId?: any) {
   const { actor, isFetching } = useActor();
 
   return useQuery<StoreResponse[]>({
-    queryKey: ['vendorStores', vendorId?.toString()],
+    queryKey: ['storesByVendor', vendorId?.toString()],
     queryFn: async () => {
       if (!actor || !vendorId) return [];
       return actor.getStoresByVendor(vendorId);
@@ -906,24 +269,9 @@ export function useGetStoresByVendor(vendorId: Principal | null) {
   });
 }
 
-/**
- * Convenience hook that fetches stores for the currently authenticated user.
- * Used by StoreListManager, StoreSelector, and VendorDashboard.
- */
-export function useMyStores() {
-  const { identity } = useInternetIdentity();
-  const { actor, isFetching } = useActor();
-
-  const principal = identity?.getPrincipal() ?? null;
-
-  return useQuery<StoreResponse[]>({
-    queryKey: ['vendorStores', principal?.toString()],
-    queryFn: async () => {
-      if (!actor || !principal) return [];
-      return actor.getStoresByVendor(principal);
-    },
-    enabled: !!actor && !isFetching && !!principal,
-  });
+/** Alias for useGetStoresByVendor used by vendor components */
+export function useMyStores(vendorId?: any) {
+  return useGetStoresByVendor(vendorId);
 }
 
 export function useCreateStore() {
@@ -944,7 +292,7 @@ export function useCreateStore() {
       return actor.createStore(name, description, contactInfo);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendorStores'] });
+      queryClient.invalidateQueries({ queryKey: ['storesByVendor'] });
     },
   });
 }
@@ -969,7 +317,7 @@ export function useUpdateStore() {
       return actor.updateStore(storeId, name, description, contactInfo);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendorStores'] });
+      queryClient.invalidateQueries({ queryKey: ['storesByVendor'] });
     },
   });
 }
@@ -984,7 +332,894 @@ export function useToggleStoreActive() {
       return actor.toggleStoreActive(storeId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendorStores'] });
+      queryClient.invalidateQueries({ queryKey: ['storesByVendor'] });
     },
   });
+}
+
+// ─── Products ─────────────────────────────────────────────────────────────────
+
+export function useGetAllStoreIds() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<string[]>({
+    queryKey: ['allStoreIds'],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllStoreIds();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useListStoreProducts(storeId?: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<BackendProduct[]>({
+    queryKey: ['storeProducts', storeId],
+    queryFn: async () => {
+      if (!actor || !storeId) return [];
+      return actor.listStoreProducts(storeId);
+    },
+    enabled: !!actor && !isFetching && !!storeId,
+  });
+}
+
+export function useGetProduct(storeId?: string, productId?: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<BackendProduct | null>({
+    queryKey: ['product', storeId, productId],
+    queryFn: async () => {
+      if (!actor || !storeId || !productId) return null;
+      return actor.getProduct(storeId, productId);
+    },
+    enabled: !!actor && !isFetching && !!storeId && !!productId,
+  });
+}
+
+export function useSearchProducts(filter?: SearchFilter) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalProduct[]>({
+    queryKey: [
+      'searchProducts',
+      filter?.keyword,
+      filter?.category,
+      filter?.productType,
+      filter?.sortBy,
+    ],
+    queryFn: async () => {
+      if (!actor) return [];
+
+      let storeIds: string[] = [];
+      try {
+        storeIds = await actor.getAllStoreIds();
+      } catch (e) {
+        console.error('Failed to fetch store IDs:', e);
+        return [];
+      }
+
+      const allProducts: LocalProduct[] = [];
+
+      await Promise.all(
+        storeIds.map(async (storeId) => {
+          try {
+            const products = await actor.listStoreProducts(storeId);
+            for (const p of products) {
+              if (p.status === ProductStatus.active) {
+                allProducts.push(backendProductToLocal(p, storeId));
+              }
+            }
+          } catch (e) {
+            console.error(`Failed to fetch products for store ${storeId}:`, e);
+          }
+        })
+      );
+
+      let filtered = allProducts;
+
+      if (filter?.keyword) {
+        const kw = filter.keyword.toLowerCase();
+        filtered = filtered.filter(
+          (p) =>
+            p.title.toLowerCase().includes(kw) ||
+            p.description.toLowerCase().includes(kw) ||
+            p.category.toLowerCase().includes(kw)
+        );
+      }
+
+      if (filter?.category) {
+        filtered = filtered.filter((p) => p.category === filter.category);
+      }
+
+      if (filter?.productType) {
+        filtered = filtered.filter((p) => p.productType === filter.productType);
+      }
+
+      if (filter?.sortBy) {
+        if (filter.sortBy === 'priceAsc') {
+          filtered = [...filtered].sort((a, b) => a.price - b.price);
+        } else if (filter.sortBy === 'priceDesc') {
+          filtered = [...filtered].sort((a, b) => b.price - a.price);
+        } else if (filter.sortBy === 'quantityDesc') {
+          filtered = [...filtered].sort((a, b) => b.stock - a.stock);
+        }
+      }
+
+      return filtered;
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddProductToStore() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ storeId, product }: { storeId: string; product: BackendProduct }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.addProductToStore(storeId, product);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+      queryClient.invalidateQueries({ queryKey: ['searchProducts'] });
+    },
+  });
+}
+
+export function useUpdateStoreProduct() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ storeId, product }: { storeId: string; product: BackendProduct }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.updateStoreProduct(storeId, product);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+      queryClient.invalidateQueries({ queryKey: ['searchProducts'] });
+    },
+  });
+}
+
+export function useDeleteStoreProduct() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ storeId, productId }: { storeId: string; productId: string }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.deleteStoreProduct(storeId, productId);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+      queryClient.invalidateQueries({ queryKey: ['searchProducts'] });
+    },
+  });
+}
+
+export function useAddVariant() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      productId,
+      variant,
+    }: {
+      storeId: string;
+      productId: string;
+      variant: BackendProductVariant;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.addVariant(storeId, productId, variant);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+      queryClient.invalidateQueries({ queryKey: ['searchProducts'] });
+    },
+  });
+}
+
+export function useUpdateVariant() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      productId,
+      variantIndex,
+      updatedVariant,
+    }: {
+      storeId: string;
+      productId: string;
+      variantIndex: bigint;
+      updatedVariant: BackendProductVariant;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.updateVariant(storeId, productId, variantIndex, updatedVariant);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+      queryClient.invalidateQueries({ queryKey: ['searchProducts'] });
+    },
+  });
+}
+
+export function useDeleteVariant() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      productId,
+      variantIndex,
+    }: {
+      storeId: string;
+      productId: string;
+      variantIndex: bigint;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.deleteVariant(storeId, productId, variantIndex);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['storeProducts', variables.storeId] });
+      queryClient.invalidateQueries({ queryKey: ['searchProducts'] });
+    },
+  });
+}
+
+// ─── Cart ─────────────────────────────────────────────────────────────────────
+
+export function useGetCart() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<Array<{ productId: string; quantity: number; variantIndex?: number; variantLabel?: string }>>({
+    queryKey: ['cart'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('cart');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddToCart() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      quantity,
+      variantIndex,
+      variantLabel,
+    }: {
+      productId: string;
+      quantity: number;
+      variantIndex?: number;
+      variantLabel?: string;
+    }) => {
+      const stored = localStorage.getItem('cart');
+      const cart: Array<{
+        productId: string;
+        quantity: number;
+        variantIndex?: number;
+        variantLabel?: string;
+      }> = stored ? JSON.parse(stored) : [];
+
+      const existingIndex = cart.findIndex(
+        (item) => item.productId === productId && item.variantIndex === variantIndex
+      );
+
+      if (existingIndex >= 0) {
+        cart[existingIndex].quantity += quantity;
+      } else {
+        cart.push({ productId, quantity, variantIndex, variantLabel });
+      }
+
+      localStorage.setItem('cart', JSON.stringify(cart));
+      return cart;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    },
+  });
+}
+
+export function useRemoveFromCart() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      variantIndex,
+    }: {
+      productId: string;
+      variantIndex?: number;
+    }) => {
+      const stored = localStorage.getItem('cart');
+      const cart: Array<{
+        productId: string;
+        quantity: number;
+        variantIndex?: number;
+      }> = stored ? JSON.parse(stored) : [];
+
+      const updated = cart.filter(
+        (item) => !(item.productId === productId && item.variantIndex === variantIndex)
+      );
+
+      localStorage.setItem('cart', JSON.stringify(updated));
+      return updated;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    },
+  });
+}
+
+export function useClearCart() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      localStorage.removeItem('cart');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    },
+  });
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+export function useGetOrders() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalOrder[]>({
+    queryKey: ['orders'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('orders');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+/** Alias for useGetOrders */
+export function useGetMyOrders() {
+  return useGetOrders();
+}
+
+/** Alias for admin use */
+export function useGetAllOrders() {
+  return useGetOrders();
+}
+
+export function useGetOrder(orderId?: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalOrder | null>({
+    queryKey: ['order', orderId],
+    queryFn: async () => {
+      if (!orderId) return null;
+      const stored = localStorage.getItem('orders');
+      if (!stored) return null;
+      const orders: LocalOrder[] = JSON.parse(stored);
+      return orders.find((o) => o.id === orderId) || null;
+    },
+    enabled: !!actor && !isFetching && !!orderId,
+  });
+}
+
+export function useCreateOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (order: LocalOrder) => {
+      const stored = localStorage.getItem('orders');
+      const orders: LocalOrder[] = stored ? JSON.parse(stored) : [];
+      orders.push(order);
+      localStorage.setItem('orders', JSON.stringify(orders));
+      return order;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+}
+
+export function useUpdateOrderStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+      const stored = localStorage.getItem('orders');
+      const orders: LocalOrder[] = stored ? JSON.parse(stored) : [];
+      const idx = orders.findIndex((o) => o.id === orderId);
+      if (idx >= 0) {
+        orders[idx].status = status;
+        orders[idx].updatedAt = Date.now();
+      }
+      localStorage.setItem('orders', JSON.stringify(orders));
+      return orders[idx];
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+}
+
+// ─── Payouts ──────────────────────────────────────────────────────────────────
+
+export function useGetVendorPayouts() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalPayout[]>({
+    queryKey: ['vendorPayouts'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('payouts');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetAllPayouts() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalPayout[]>({
+    queryKey: ['allPayouts'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('payouts');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useUpdatePayoutStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ payoutId, status }: { payoutId: string; status: string }) => {
+      const stored = localStorage.getItem('payouts');
+      const payouts: LocalPayout[] = stored ? JSON.parse(stored) : [];
+      const idx = payouts.findIndex((p) => p.payoutId === payoutId);
+      if (idx >= 0) {
+        payouts[idx].status = status;
+        payouts[idx].updatedAt = Date.now();
+      }
+      localStorage.setItem('payouts', JSON.stringify(payouts));
+      return payouts[idx];
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allPayouts'] });
+      queryClient.invalidateQueries({ queryKey: ['vendorPayouts'] });
+    },
+  });
+}
+
+export function useGetCommissionRate() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<number>({
+    queryKey: ['commissionRate'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('commissionRate');
+      return stored ? Number(stored) : 5;
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetCommissionRate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (rate: number) => {
+      localStorage.setItem('commissionRate', String(rate));
+      return rate;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['commissionRate'] });
+    },
+  });
+}
+
+/** Alias kept for backward compat */
+export function useUpdateCommissionRate() {
+  return useSetCommissionRate();
+}
+
+// ─── Stripe ───────────────────────────────────────────────────────────────────
+
+export function useIsStripeConfigured() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<boolean>({
+    queryKey: ['isStripeConfigured'],
+    queryFn: async () => {
+      if (!actor) return false;
+      return actor.isStripeConfigured();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetStripeConfiguration() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (config: { secretKey: string; allowedCountries: string[] }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.setStripeConfiguration(config);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['isStripeConfigured'] });
+    },
+  });
+}
+
+export function useCreateCheckoutSession() {
+  const { actor } = useActor();
+
+  return useMutation({
+    mutationFn: async ({
+      items,
+      successUrl,
+      cancelUrl,
+    }: {
+      items: ShoppingItem[];
+      successUrl: string;
+      cancelUrl: string;
+    }) => {
+      if (!actor) throw new Error('Actor not available');
+      const result = await actor.createCheckoutSession(items, successUrl, cancelUrl);
+      const session = JSON.parse(result);
+      if (!session?.url) throw new Error('Stripe session missing url');
+      return session;
+    },
+  });
+}
+
+export function useGetStripeSessionStatus(sessionId?: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery({
+    queryKey: ['stripeSessionStatus', sessionId],
+    queryFn: async () => {
+      if (!actor || !sessionId) return null;
+      return actor.getStripeSessionStatus(sessionId);
+    },
+    enabled: !!actor && !isFetching && !!sessionId,
+  });
+}
+
+// ─── Auctions ─────────────────────────────────────────────────────────────────
+
+export function useGetAuctions() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalAuction[]>({
+    queryKey: ['auctions'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('auctions');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+/** Alias for admin panel */
+export function useGetAllAuctions() {
+  return useGetAuctions();
+}
+
+/** Alias for listing active auctions */
+export function useListActiveAuctions() {
+  return useGetAuctions();
+}
+
+export function useGetVendorAuctions() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalAuction[]>({
+    queryKey: ['vendorAuctions'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('auctions');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetAuction(auctionId?: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalAuction | null>({
+    queryKey: ['auction', auctionId],
+    queryFn: async () => {
+      if (!auctionId) return null;
+      const stored = localStorage.getItem('auctions');
+      if (!stored) return null;
+      const auctions: LocalAuction[] = JSON.parse(stored);
+      return auctions.find((a) => a.id === auctionId) || null;
+    },
+    enabled: !!actor && !isFetching && !!auctionId,
+  });
+}
+
+export function useCreateAuction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (auction: Omit<LocalAuction, 'id' | 'bids' | 'createdAt'>) => {
+      const stored = localStorage.getItem('auctions');
+      const auctions: LocalAuction[] = stored ? JSON.parse(stored) : [];
+      const newAuction: LocalAuction = {
+        ...auction,
+        id: `auction-${Date.now()}`,
+        bids: [],
+        createdAt: Date.now(),
+      };
+      auctions.push(newAuction);
+      localStorage.setItem('auctions', JSON.stringify(auctions));
+      return newAuction;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auctions'] });
+      queryClient.invalidateQueries({ queryKey: ['vendorAuctions'] });
+    },
+  });
+}
+
+export function usePlaceBid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ auctionId, amount }: { auctionId: string; amount: number }) => {
+      const stored = localStorage.getItem('auctions');
+      const auctions: LocalAuction[] = stored ? JSON.parse(stored) : [];
+      const idx = auctions.findIndex((a) => a.id === auctionId);
+      if (idx >= 0) {
+        auctions[idx].bids.push({ bidder: 'current-user', amount, timestamp: Date.now() });
+        auctions[idx].currentPrice = amount;
+        auctions[idx].currentBid = amount;
+      }
+      localStorage.setItem('auctions', JSON.stringify(auctions));
+      return auctions[idx];
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['auction', variables.auctionId] });
+      queryClient.invalidateQueries({ queryKey: ['auctions'] });
+    },
+  });
+}
+
+export function useCancelAuction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (auctionId: string) => {
+      const stored = localStorage.getItem('auctions');
+      const auctions: LocalAuction[] = stored ? JSON.parse(stored) : [];
+      const idx = auctions.findIndex((a) => a.id === auctionId);
+      if (idx >= 0) {
+        auctions[idx].status = 'canceled';
+      }
+      localStorage.setItem('auctions', JSON.stringify(auctions));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auctions'] });
+      queryClient.invalidateQueries({ queryKey: ['vendorAuctions'] });
+    },
+  });
+}
+
+export function useFinalizeAuction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (auctionId: string) => {
+      const stored = localStorage.getItem('auctions');
+      const auctions: LocalAuction[] = stored ? JSON.parse(stored) : [];
+      const idx = auctions.findIndex((a) => a.id === auctionId);
+      if (idx >= 0) {
+        auctions[idx].status = 'ended';
+      }
+      localStorage.setItem('auctions', JSON.stringify(auctions));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auctions'] });
+      queryClient.invalidateQueries({ queryKey: ['vendorAuctions'] });
+    },
+  });
+}
+
+// ─── Trade Offers ─────────────────────────────────────────────────────────────
+
+export function useGetTradeOffers() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalTradeOffer[]>({
+    queryKey: ['tradeOffers'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('tradeOffers');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+/** Alias for pages that use useGetMyTradeOffers */
+export function useGetMyTradeOffers() {
+  return useGetTradeOffers();
+}
+
+export function useCreateTradeOffer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (offer: {
+      recipientId: any;
+      offeredItems: Array<{ productId: string; quantity: bigint }>;
+      requestedItems: Array<{ productId: string; quantity: bigint }>;
+      cashAdjustment: number;
+    }) => {
+      const stored = localStorage.getItem('tradeOffers');
+      const offers: LocalTradeOffer[] = stored ? JSON.parse(stored) : [];
+      const newOffer: LocalTradeOffer = {
+        id: `trade-${Date.now()}`,
+        offererId: 'current-user',
+        recipientId: offer.recipientId,
+        offeredItems: offer.offeredItems.map((i) => ({
+          productId: i.productId,
+          quantity: Number(i.quantity),
+        })),
+        requestedItems: offer.requestedItems.map((i) => ({
+          productId: i.productId,
+          quantity: Number(i.quantity),
+        })),
+        cashAdjustment: offer.cashAdjustment,
+        status: 'pending',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      offers.push(newOffer);
+      localStorage.setItem('tradeOffers', JSON.stringify(offers));
+      return newOffer;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tradeOffers'] });
+    },
+  });
+}
+
+export function useAcceptTradeOffer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (offerId: string) => {
+      const stored = localStorage.getItem('tradeOffers');
+      const offers: LocalTradeOffer[] = stored ? JSON.parse(stored) : [];
+      const idx = offers.findIndex((o) => o.id === offerId);
+      if (idx >= 0) offers[idx].status = 'accepted';
+      localStorage.setItem('tradeOffers', JSON.stringify(offers));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tradeOffers'] });
+    },
+  });
+}
+
+export function useRejectTradeOffer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (offerId: string) => {
+      const stored = localStorage.getItem('tradeOffers');
+      const offers: LocalTradeOffer[] = stored ? JSON.parse(stored) : [];
+      const idx = offers.findIndex((o) => o.id === offerId);
+      if (idx >= 0) offers[idx].status = 'rejected';
+      localStorage.setItem('tradeOffers', JSON.stringify(offers));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tradeOffers'] });
+    },
+  });
+}
+
+export function useCancelTradeOffer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (offerId: string) => {
+      const stored = localStorage.getItem('tradeOffers');
+      const offers: LocalTradeOffer[] = stored ? JSON.parse(stored) : [];
+      const idx = offers.findIndex((o) => o.id === offerId);
+      if (idx >= 0) offers[idx].status = 'canceled';
+      localStorage.setItem('tradeOffers', JSON.stringify(offers));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tradeOffers'] });
+    },
+  });
+}
+
+export function useCounterTradeOffer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      offerId,
+      counterOffer,
+    }: {
+      offerId: string;
+      counterOffer: {
+        offeredItems: Array<{ productId: string; quantity: bigint }>;
+        requestedItems: Array<{ productId: string; quantity: bigint }>;
+        cashAdjustment: number;
+      };
+    }) => {
+      const stored = localStorage.getItem('tradeOffers');
+      const offers: LocalTradeOffer[] = stored ? JSON.parse(stored) : [];
+      const idx = offers.findIndex((o) => o.id === offerId);
+      if (idx >= 0) {
+        offers[idx].status = 'countered';
+        offers[idx].counterOffer = counterOffer;
+        offers[idx].updatedAt = Date.now();
+      }
+      localStorage.setItem('tradeOffers', JSON.stringify(offers));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tradeOffers'] });
+    },
+  });
+}
+
+export function useGetAllTradeOffers() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalTradeOffer[]>({
+    queryKey: ['allTradeOffers'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('tradeOffers');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetVendorTransactions() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<VendorTransaction[]>({
+    queryKey: ['vendorTransactions'],
+    queryFn: async () => {
+      const stored = localStorage.getItem('transactions');
+      if (!stored) return [];
+      return JSON.parse(stored);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+/** Alias used by VendorOrderHistory */
+export function useVendorTransactions() {
+  return useGetVendorTransactions();
 }

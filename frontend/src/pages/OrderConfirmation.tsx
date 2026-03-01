@@ -1,110 +1,40 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from '@tanstack/react-router';
-import { useGetOrder } from '../hooks/useQueries';
-import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
-import OrderStatusTimeline from '../components/orders/OrderStatusTimeline';
-import { Skeleton } from '@/components/ui/skeleton';
+import { CheckCircle, Package, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from '@tanstack/react-router';
-import { CheckCircle, Package } from 'lucide-react';
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString();
-}
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+import { useGetOrder } from '../hooks/useQueries';
 
 export default function OrderConfirmation() {
-  const { orderId } = useParams({ from: '/order/$orderId' });
-  const { data: order, isLoading } = useGetOrder(orderId);
-
-  if (isLoading) {
-    return (
-      <main className="container mx-auto px-4 py-10 max-w-2xl">
-        <Skeleton className="h-8 w-48 mb-6" />
-        <Skeleton className="h-64 w-full" />
-      </main>
-    );
-  }
-
-  if (!order) {
-    return (
-      <main className="container mx-auto px-4 py-10 max-w-2xl text-center">
-        <Package className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-30" />
-        <h1 className="font-serif text-2xl text-foreground mb-2">Order Not Found</h1>
-        <p className="font-sans text-sm text-muted-foreground mb-4">
-          We couldn't find this order. It may have been removed.
-        </p>
-        <Button asChild variant="outline" className="border-gold/30 text-bronze hover:bg-gold/5">
-          <Link to="/my-orders">My Orders</Link>
-        </Button>
-      </main>
-    );
-  }
+  const { orderId } = useParams({ from: '/order-confirmation/$orderId' });
+  const navigate = useNavigate();
+  const { data: order } = useGetOrder(orderId ?? null);
 
   return (
-    <main className="container mx-auto px-4 py-10 max-w-2xl">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-          <CheckCircle className="w-8 h-8 text-emerald-500" />
+    <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+      <div className="flex justify-center mb-6">
+        <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-full">
+          <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
         </div>
-        <p className="font-sans text-xs text-gold uppercase tracking-[0.2em] mb-2">Confirmed</p>
-        <h1 className="font-serif text-3xl text-foreground mb-2">Order Placed!</h1>
-        <p className="font-sans text-sm text-muted-foreground">
-          Thank you for your order. We'll notify you when it ships.
+      </div>
+      <h1 className="text-3xl font-bold mb-2">Order Confirmed!</h1>
+      <p className="text-muted-foreground mb-2">
+        Thank you for your purchase. Your order has been placed successfully.
+      </p>
+      {orderId && (
+        <p className="font-mono text-sm text-muted-foreground mb-8">
+          Order ID: {orderId}
         </p>
+      )}
+      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <Button onClick={() => navigate({ to: '/my-orders' })}>
+          <Package className="mr-2 h-4 w-4" />
+          View My Orders
+        </Button>
+        <Button variant="outline" onClick={() => navigate({ to: '/products' })}>
+          Continue Shopping
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
       </div>
-
-      <div className="bg-card border border-border rounded p-6 space-y-5">
-        {/* Timeline */}
-        <div className="overflow-x-auto pb-2">
-          <OrderStatusTimeline status={order.status} />
-        </div>
-
-        {/* Status & Date */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <OrderStatusBadge status={order.status} />
-          <span className="font-sans text-xs text-muted-foreground">
-            Placed on {formatDate(order.timestamp)}
-          </span>
-        </div>
-
-        {/* Order ID */}
-        <div>
-          <p className="font-sans text-xs text-muted-foreground mb-1">Order ID</p>
-          <p className="font-mono text-sm text-foreground">{order.id}</p>
-        </div>
-
-        {/* Items */}
-        <div>
-          <p className="font-sans text-xs text-muted-foreground mb-2">Items ({order.items.length})</p>
-          <div className="space-y-1">
-            {order.items.map((item) => (
-              <div key={item.productId} className="flex justify-between font-sans text-sm">
-                <span className="text-muted-foreground font-mono text-xs">{item.productId.slice(0, 12)}…</span>
-                <span className="text-foreground">× {item.quantity}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Total */}
-        <div className="flex justify-between items-center pt-3 border-t border-border">
-          <span className="font-sans text-sm text-muted-foreground">Total</span>
-          <span className="font-serif text-xl text-gold">{formatPrice(order.total)}</span>
-        </div>
-
-        <div className="flex gap-3 flex-wrap pt-2">
-          <Button asChild className="font-sans bg-gold text-background hover:bg-gold/90">
-            <Link to="/my-orders">View All Orders</Link>
-          </Button>
-          <Button asChild variant="outline" className="font-sans border-border">
-            <Link to="/products">Continue Shopping</Link>
-          </Button>
-        </div>
-      </div>
-    </main>
+    </div>
   );
 }

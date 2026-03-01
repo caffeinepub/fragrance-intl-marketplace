@@ -3,10 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
-import { useCreateVendorProfile, useRequestApproval } from '../../hooks/useQueries';
-import { ExternalBlob } from '../../backend';
-import { Loader2, Upload, Store } from 'lucide-react';
+import { useRequestApproval } from '../../hooks/useQueries';
+import { Loader2, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 
@@ -20,11 +18,9 @@ export default function VendorRegistrationForm({ onSuccess }: VendorRegistration
   const [storeName, setStoreName] = useState('');
   const [description, setDescription] = useState('');
   const [contact, setContact] = useState('');
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const createVendorProfile = useCreateVendorProfile();
   const requestApproval = useRequestApproval();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,21 +28,8 @@ export default function VendorRegistrationForm({ onSuccess }: VendorRegistration
 
     const cleanId = storeId.trim().toLowerCase().replace(/\s+/g, '-');
 
+    setIsSubmitting(true);
     try {
-      let logoBlob: ExternalBlob | null = null;
-      if (logoFile) {
-        const bytes = new Uint8Array(await logoFile.arrayBuffer());
-        logoBlob = ExternalBlob.fromBytes(bytes).withUploadProgress((pct) => setUploadProgress(pct));
-      }
-
-      await createVendorProfile.mutateAsync({
-        id: cleanId,
-        name: storeName.trim(),
-        description: description.trim(),
-        logo: logoBlob,
-        contact: contact.trim(),
-      });
-
       // Store vendor ID in localStorage so dashboard can retrieve it
       const principalStr = identity?.getPrincipal().toString() || '';
       if (principalStr) {
@@ -59,10 +42,12 @@ export default function VendorRegistrationForm({ onSuccess }: VendorRegistration
     } catch (err: unknown) {
       const error = err as Error;
       toast.error(error?.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const isPending = createVendorProfile.isPending || requestApproval.isPending;
+  const isPending = isSubmitting || requestApproval.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -120,29 +105,6 @@ export default function VendorRegistrationForm({ onSuccess }: VendorRegistration
           onChange={(e) => setContact(e.target.value)}
           placeholder="email@example.com or phone number"
         />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="logo" className="font-sans text-sm">Store Logo</Label>
-        <div className="flex items-center gap-3">
-          <label
-            htmlFor="logo"
-            className="flex items-center gap-2 px-4 py-2 border border-dashed border-gold/40 rounded cursor-pointer hover:bg-gold/5 transition-colors text-sm text-muted-foreground"
-          >
-            <Upload className="w-4 h-4" />
-            {logoFile ? logoFile.name : 'Choose image'}
-          </label>
-          <input
-            id="logo"
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-          />
-        </div>
-        {isPending && logoFile && uploadProgress > 0 && (
-          <Progress value={uploadProgress} className="h-1.5" />
-        )}
       </div>
 
       <Button

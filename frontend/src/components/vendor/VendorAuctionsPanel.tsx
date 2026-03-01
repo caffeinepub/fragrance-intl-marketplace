@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGetVendorAuctions, useCancelAuction } from '../../hooks/useQueries';
-import type { Auction } from '../../types';
+import type { LocalAuction } from '../../hooks/useQueries';
 import CreateAuctionForm from './CreateAuctionForm';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,7 @@ function useCountdown(endTime: number) {
   return timeLeft;
 }
 
-function AuctionRow({ auction, onCancel }: { auction: Auction; onCancel: (id: string) => void }) {
+function AuctionRow({ auction, onCancel }: { auction: LocalAuction; onCancel: (id: string) => void }) {
   const countdown = useCountdown(auction.endTime);
   const cancelAuction = useCancelAuction();
   const [canceling, setCanceling] = React.useState(false);
@@ -49,9 +49,9 @@ function AuctionRow({ auction, onCancel }: { auction: Auction; onCancel: (id: st
   const handleCancel = async () => {
     setCanceling(true);
     try {
-      await cancelAuction.mutateAsync(auction.auctionId);
+      await cancelAuction.mutateAsync(auction.id);
       toast.success('Auction canceled');
-      onCancel(auction.auctionId);
+      onCancel(auction.id);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to cancel auction');
     } finally {
@@ -95,7 +95,7 @@ function AuctionRow({ auction, onCancel }: { auction: Auction; onCancel: (id: st
 }
 
 export default function VendorAuctionsPanel({ vendorId }: VendorAuctionsPanelProps) {
-  const { data: auctions, isLoading } = useGetVendorAuctions(vendorId);
+  const { data: auctions, isLoading } = useGetVendorAuctions();
   const [showForm, setShowForm] = useState(false);
 
   if (isLoading) {
@@ -121,7 +121,10 @@ export default function VendorAuctionsPanel({ vendorId }: VendorAuctionsPanelPro
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-4">
           <div className="bg-background border border-border rounded p-4">
-            <CreateAuctionForm vendorId={vendorId} onSuccess={() => setShowForm(false)} />
+            <CreateAuctionForm
+              _vendorId={vendorId}
+              onCreated={() => setShowForm(false)}
+            />
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -133,8 +136,8 @@ export default function VendorAuctionsPanel({ vendorId }: VendorAuctionsPanelPro
         </div>
       ) : (
         <div className="space-y-2">
-          {auctions.map((auction) => (
-            <AuctionRow key={auction.auctionId} auction={auction} onCancel={() => {}} />
+          {(auctions as LocalAuction[]).map((auction) => (
+            <AuctionRow key={auction.id} auction={auction} onCancel={() => {}} />
           ))}
         </div>
       )}

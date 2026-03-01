@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { useAssignRole } from '../../hooks/useQueries';
+import { UserRole } from '../../backend';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -9,50 +10,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAssignRole } from '../../hooks/useQueries';
-import { UserRole } from '../../backend';
-import { Principal } from '@icp-sdk/core/principal';
-import { Loader2, UserCog } from 'lucide-react';
+import { Principal } from '@dfinity/principal';
 import { toast } from 'sonner';
 
 export default function RoleAssignmentForm() {
-  const [principalText, setPrincipalText] = useState('');
-  const [role, setRole] = useState<UserRole>(UserRole.user);
   const assignRole = useAssignRole();
+  const [principalStr, setPrincipalStr] = useState('');
+  const [role, setRole] = useState<UserRole>(UserRole.user);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const principal = Principal.fromText(principalText.trim());
+      const principal = Principal.fromText(principalStr.trim());
       await assignRole.mutateAsync({ user: principal, role });
       toast.success('Role assigned successfully');
-      setPrincipalText('');
-    } catch {
-      toast.error('Failed to assign role. Check the principal ID.');
+      setPrincipalStr('');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to assign role');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        <UserCog className="w-5 h-5 text-gold" />
-        <h3 className="font-serif text-lg text-foreground">Assign User Role</h3>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="principal" className="font-sans text-sm">Principal ID</Label>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md">
+      <div>
+        <label className="text-sm font-medium text-foreground mb-1 block">User Principal</label>
         <Input
-          id="principal"
-          value={principalText}
-          onChange={(e) => setPrincipalText(e.target.value)}
-          placeholder="aaaaa-bbbbb-ccccc-..."
+          value={principalStr}
+          onChange={(e) => setPrincipalStr(e.target.value)}
+          placeholder="aaaaa-aa..."
           required
-          className="font-mono text-sm"
         />
       </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="role" className="font-sans text-sm">Role</Label>
+      <div>
+        <label className="text-sm font-medium text-foreground mb-1 block">Role</label>
         <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
           <SelectTrigger>
             <SelectValue />
@@ -64,17 +54,8 @@ export default function RoleAssignmentForm() {
           </SelectContent>
         </Select>
       </div>
-
-      <Button
-        type="submit"
-        disabled={!principalText.trim() || assignRole.isPending}
-        className="w-full bg-primary text-primary-foreground"
-      >
-        {assignRole.isPending ? (
-          <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Assigning...</>
-        ) : (
-          'Assign Role'
-        )}
+      <Button type="submit" disabled={assignRole.isPending}>
+        {assignRole.isPending ? 'Assigning…' : 'Assign Role'}
       </Button>
     </form>
   );

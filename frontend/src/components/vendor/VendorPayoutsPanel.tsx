@@ -1,7 +1,7 @@
 import React from 'react';
-import { useGetPayoutsForVendor } from '../../hooks/useQueries';
-import { PayoutStatus } from '../../types';
-import { PayoutStatusBadge } from '../admin/PayoutStatusBadge';
+import { useGetVendorPayouts } from '../../hooks/useQueries';
+import type { LocalPayout } from '../../hooks/useQueries';
+import PayoutStatusBadge from '../admin/PayoutStatusBadge';
 import {
   Table,
   TableBody,
@@ -25,16 +25,16 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-export default function VendorPayoutsPanel({ vendorId }: VendorPayoutsPanelProps) {
-  const { data: payouts, isLoading } = useGetPayoutsForVendor(vendorId);
+export default function VendorPayoutsPanel({ vendorId: _vendorId }: VendorPayoutsPanelProps) {
+  const { data: payouts, isLoading } = useGetVendorPayouts();
 
   const totalEarned = (payouts ?? [])
-    .filter((p) => p.status === PayoutStatus.completed)
-    .reduce((sum, p) => sum + p.netAmount, 0);
+    .filter((p: LocalPayout) => p.status === 'completed')
+    .reduce((sum: number, p: LocalPayout) => sum + p.netAmount, 0);
 
   const totalPending = (payouts ?? [])
-    .filter((p) => p.status === PayoutStatus.pending || p.status === PayoutStatus.processing)
-    .reduce((sum, p) => sum + p.netAmount, 0);
+    .filter((p: LocalPayout) => p.status === 'pending' || p.status === 'processing')
+    .reduce((sum: number, p: LocalPayout) => sum + p.netAmount, 0);
 
   if (isLoading) {
     return (
@@ -50,7 +50,6 @@ export default function VendorPayoutsPanel({ vendorId }: VendorPayoutsPanelProps
 
   return (
     <div className="space-y-5">
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-background border border-border rounded p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded bg-emerald-500/10 flex items-center justify-center shrink-0">
@@ -72,7 +71,6 @@ export default function VendorPayoutsPanel({ vendorId }: VendorPayoutsPanelProps
         </div>
       </div>
 
-      {/* Payout History */}
       {(!payouts || payouts.length === 0) ? (
         <div className="text-center py-8 border border-dashed border-border rounded">
           <DollarSign className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-30" />
@@ -85,19 +83,22 @@ export default function VendorPayoutsPanel({ vendorId }: VendorPayoutsPanelProps
               <TableRow>
                 <TableHead className="font-sans text-xs">Payout ID</TableHead>
                 <TableHead className="font-sans text-xs">Order ID</TableHead>
+                <TableHead className="font-sans text-xs">Date</TableHead>
                 <TableHead className="font-sans text-xs">Gross</TableHead>
                 <TableHead className="font-sans text-xs">Commission</TableHead>
                 <TableHead className="font-sans text-xs">Net</TableHead>
                 <TableHead className="font-sans text-xs">Status</TableHead>
-                <TableHead className="font-sans text-xs">Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payouts.map((payout) => (
+              {(payouts ?? []).map((payout: LocalPayout) => (
                 <TableRow key={payout.payoutId}>
                   <TableCell className="font-mono text-xs">{payout.payoutId.slice(0, 10)}…</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {payout.orderId.slice(0, 8)}…
+                  </TableCell>
+                  <TableCell className="font-sans text-xs text-muted-foreground">
+                    {formatDate(payout.createdAt)}
                   </TableCell>
                   <TableCell className="font-sans text-sm">
                     {formatAmount(payout.grossAmount)}
@@ -105,12 +106,11 @@ export default function VendorPayoutsPanel({ vendorId }: VendorPayoutsPanelProps
                   <TableCell className="font-sans text-sm text-muted-foreground">
                     -{formatAmount(payout.commissionAmount)}
                   </TableCell>
-                  <TableCell className="font-sans text-sm font-medium text-gold">
+                  <TableCell className="font-sans text-sm font-medium">
                     {formatAmount(payout.netAmount)}
                   </TableCell>
-                  <TableCell><PayoutStatusBadge status={payout.status} /></TableCell>
-                  <TableCell className="font-sans text-xs text-muted-foreground">
-                    {formatDate(payout.createdAt)}
+                  <TableCell>
+                    <PayoutStatusBadge status={payout.status as 'pending' | 'processing' | 'completed' | 'failed'} />
                   </TableCell>
                 </TableRow>
               ))}

@@ -1,49 +1,6 @@
-// Local type definitions for types no longer exported from backend.d.ts
-// These mirror the Motoko backend types
+import { ProductType, ProductStatus } from '../backend';
 
-export type ProductType = 'physical' | 'digital' | 'service';
-export const ProductType = {
-  physical: 'physical' as const,
-  digital: 'digital' as const,
-  service: 'service' as const,
-};
-
-export type ProductStatus = 'active' | 'inactive';
-
-export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'canceled';
-export const OrderStatus = {
-  pending: 'pending' as const,
-  processing: 'processing' as const,
-  shipped: 'shipped' as const,
-  delivered: 'delivered' as const,
-  canceled: 'canceled' as const,
-};
-
-export type PayoutStatus = 'pending' | 'processing' | 'completed' | 'failed';
-export const PayoutStatus = {
-  pending: 'pending' as const,
-  processing: 'processing' as const,
-  completed: 'completed' as const,
-  failed: 'failed' as const,
-};
-
-export type PaymentStatus =
-  | 'pending'
-  | 'initiated'
-  | 'awaiting_payment'
-  | 'completed'
-  | 'failed';
-
-export interface VendorProfile {
-  id: string;
-  name: string;
-  description: string;
-  logo?: string | null;
-  contact: string;
-  approved: boolean;
-  createdBy: string;
-  principal: string;
-}
+export { ProductType, ProductStatus };
 
 export interface ProductVariant {
   name: string;
@@ -58,12 +15,19 @@ export interface Product {
   title: string;
   description: string;
   price: number;
+  stock: number;
   category: string;
   productType: ProductType;
-  stock: number;
-  image?: string | null;
   status: ProductStatus;
+  image?: any;
   variants: ProductVariant[];
+}
+
+export interface SearchFilter {
+  keyword?: string;
+  category?: string;
+  productType?: ProductType;
+  sortBy?: 'priceAsc' | 'priceDesc' | 'quantityDesc';
 }
 
 export interface CartItem {
@@ -73,6 +37,40 @@ export interface CartItem {
   variantLabel?: string;
 }
 
+export type OrderStatus =
+  | 'pending'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'canceled';
+
+export type PaymentStatus =
+  | 'pending'
+  | 'initiated'
+  | 'awaiting_payment'
+  | 'completed'
+  | 'failed';
+
+export type PayoutStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export type AuctionStatus = 'active' | 'ended' | 'canceled' | 'pending';
+
+export type TradeOfferStatus = 'pending' | 'accepted' | 'rejected' | 'canceled' | 'countered';
+
+export interface BidEntry {
+  bidder: any;
+  amount: number;
+  timestamp: number;
+}
+
+export interface TradeItem {
+  productId: string;
+  quantity: number;
+}
+
+/** Sort variant type used by SearchFilters */
+export type Variant_quantityDesc_priceDesc_priceAsc = 'quantityDesc' | 'priceDesc' | 'priceAsc';
+
 export interface Order {
   id: string;
   customer: string;
@@ -81,24 +79,13 @@ export interface Order {
   status: OrderStatus;
   shippingAddress: string;
   timestamp: number;
-  paymentUrl?: string | null;
+  paymentUrl?: string;
   paymentStatus: PaymentStatus;
-  paymentSessionId?: string | null;
+  paymentSessionId?: string;
   createdAt: number;
   updatedAt: number;
   statusHistory: OrderStatus[];
   paymentHistory: PaymentStatus[];
-}
-
-export interface TransactionEntry {
-  orderId: string;
-  buyer: string;
-  vendor: string;
-  items: CartItem[];
-  totalAmount: number;
-  commissionFee: number;
-  netPayout: number;
-  timestamp: number;
 }
 
 export interface Payout {
@@ -113,74 +100,50 @@ export interface Payout {
   updatedAt: number;
 }
 
-export interface SearchFilter {
-  keyword?: string | null;
-  category?: string | null;
-  productType?: ProductType | null;
-  sortBy?: 'priceAsc' | 'priceDesc' | 'quantityDesc' | null;
-}
-
-// Variant enum for sort (used in search filters)
-export const Variant_quantityDesc_priceDesc_priceAsc = {
-  priceAsc: 'priceAsc' as const,
-  priceDesc: 'priceDesc' as const,
-  quantityDesc: 'quantityDesc' as const,
-};
-
-// Auction types
-export type AuctionStatus = 'active' | 'ended' | 'canceled';
-export const AuctionStatus = {
-  active: 'active' as const,
-  ended: 'ended' as const,
-  canceled: 'canceled' as const,
-};
-
-export interface BidEntry {
-  bidder: string;
-  amount: number;
-  timestamp: number;
+export interface VendorProfile {
+  id: string;
+  name: string;
+  description: string;
+  contact: string;
+  approved: boolean;
+  createdBy: string;
+  principal: string;
 }
 
 export interface Auction {
-  auctionId: string;
-  vendorId: string;
+  id: string;
   productId: string;
+  storeId: string;
+  vendorId: string;
   title: string;
   description: string;
   startingPrice: number;
-  reservePrice?: number | null;
-  currentBid?: number | null;
-  currentBidder?: string | null;
+  currentPrice: number;
+  currentBid?: number;
+  reservePrice?: number;
+  currentBidder?: string;
+  minBidIncrement: number;
   endTime: number;
-  status: AuctionStatus;
+  status: AuctionStatus | string;
   bids: BidEntry[];
+  winnerId?: any;
   createdAt: number;
-}
-
-// Trade offer types
-export type TradeOfferStatus = 'pending' | 'accepted' | 'rejected' | 'canceled' | 'countered';
-export const TradeOfferStatus = {
-  pending: 'pending' as const,
-  accepted: 'accepted' as const,
-  rejected: 'rejected' as const,
-  canceled: 'canceled' as const,
-  countered: 'countered' as const,
-};
-
-export interface TradeItem {
-  productId: string;
-  quantity: number;
 }
 
 export interface TradeOffer {
-  offerId: string;
-  offeredBy: string;
-  targetPrincipal: string;
+  id: string;
+  offererId: any;
+  recipientId: any;
   offeredItems: TradeItem[];
   requestedItems: TradeItem[];
   cashAdjustment: number;
-  note: string;
-  status: TradeOfferStatus;
+  status: TradeOfferStatus | string;
+  note?: string;
   createdAt: number;
   updatedAt: number;
+  counterOffer?: any;
 }
+
+export type UserRole = 'admin' | 'user' | 'guest';
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';

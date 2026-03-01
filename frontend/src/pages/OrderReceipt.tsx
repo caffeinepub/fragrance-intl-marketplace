@@ -1,145 +1,110 @@
 import React from 'react';
-import { useParams } from '@tanstack/react-router';
-import { useGetOrder, useOrderTransaction, useIsCallerAdmin } from '../hooks/useQueries';
-import { OrderStatus } from '../types';
-import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useParams, useNavigate } from '@tanstack/react-router';
+import { ArrowLeft, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Printer, ArrowLeft } from 'lucide-react';
-import { Link } from '@tanstack/react-router';
+import { Separator } from '@/components/ui/separator';
+import { useGetOrder } from '../hooks/useQueries';
+import type { LocalOrder } from '../hooks/useQueries';
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   });
 }
 
 function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 }
 
 export default function OrderReceipt() {
-  const { orderId } = useParams({ from: '/order/$orderId/receipt' });
-  const { data: order, isLoading: orderLoading } = useGetOrder(orderId);
-  const { data: transaction, isLoading: txLoading } = useOrderTransaction(orderId);
-  const { data: isAdmin } = useIsCallerAdmin();
-
-  const isLoading = orderLoading || txLoading;
+  const { orderId } = useParams({ from: '/orders/$orderId/receipt' });
+  const navigate = useNavigate();
+  const { data: order, isLoading } = useGetOrder(orderId ?? null);
 
   if (isLoading) {
     return (
-      <main className="container mx-auto px-4 py-10 max-w-2xl">
-        <Skeleton className="h-8 w-48 mb-6" />
-        <Skeleton className="h-96 w-full" />
-      </main>
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-8 bg-muted animate-pulse rounded" />
+          ))}
+        </div>
+      </div>
     );
   }
 
   if (!order) {
     return (
-      <main className="container mx-auto px-4 py-10 max-w-2xl text-center">
-        <h1 className="font-serif text-2xl text-foreground mb-2">Receipt Not Found</h1>
-        <p className="font-sans text-sm text-muted-foreground mb-4">
-          We couldn't find this order receipt.
-        </p>
-        <Button asChild variant="outline" className="border-gold/30 text-bronze hover:bg-gold/5">
-          <Link to="/my-orders">My Orders</Link>
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <h2 className="text-2xl font-semibold mb-2">Order Not Found</h2>
+        <p className="text-muted-foreground mb-6">This order receipt could not be found.</p>
+        <Button variant="outline" onClick={() => navigate({ to: '/my-orders' })}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Orders
         </Button>
-      </main>
+      </div>
     );
   }
 
+  const typedOrder = order as LocalOrder;
+
   return (
-    <main className="container mx-auto px-4 py-10 max-w-2xl">
+    <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6 print:hidden">
-        <Button asChild variant="ghost" className="font-sans text-sm text-muted-foreground hover:text-foreground">
-          <Link to="/my-orders">
-            <ArrowLeft className="w-4 h-4 mr-1.5" />
-            Back to Orders
-          </Link>
+        <Button variant="ghost" onClick={() => navigate({ to: '/my-orders' })}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Orders
         </Button>
-        <Button
-          variant="outline"
-          className="font-sans border-border"
-          onClick={() => window.print()}
-        >
-          <Printer className="w-4 h-4 mr-2" />
-          Print / Save as PDF
+        <Button variant="outline" onClick={() => window.print()}>
+          <Printer className="mr-2 h-4 w-4" />
+          Print Receipt
         </Button>
       </div>
 
-      <div className="bg-card border border-border rounded p-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <img src="/assets/generated/logo-mark.dim_256x256.png" alt="Fragrance.Intl" className="w-8 h-8 rounded" />
-              <span className="font-serif text-lg text-foreground">Fragrance.Intl</span>
-            </div>
-            <p className="font-sans text-xs text-muted-foreground">
-              Issued {formatDate(order.createdAt)}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="font-sans text-xs text-muted-foreground mb-1">Invoice</p>
-            <p className="font-mono text-sm text-foreground">{order.id.slice(0, 14)}…</p>
-            <div className="mt-1">
-              <OrderStatusBadge status={order.status} />
-            </div>
-          </div>
+      <div className="bg-card border border-border rounded-xl p-8">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold">Order Receipt</h1>
+          <p className="font-mono text-sm text-muted-foreground mt-1">{typedOrder.id}</p>
+          <p className="text-sm text-muted-foreground">{formatDate(typedOrder.createdAt)}</p>
         </div>
 
-        {/* Shipping */}
-        {order.shippingAddress && (
-          <div>
-            <p className="font-sans text-xs text-muted-foreground uppercase tracking-wider mb-1">Ship To</p>
-            <p className="font-sans text-sm text-foreground whitespace-pre-line">{order.shippingAddress}</p>
-          </div>
+        <Separator className="my-4" />
+
+        <div className="space-y-3 mb-4">
+          <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Items</h3>
+          {typedOrder.items.map((item, idx) => (
+            <div key={idx} className="flex justify-between text-sm">
+              <span className="font-mono text-xs text-muted-foreground">{item.productId.slice(0, 12)}…</span>
+              <span>× {item.quantity}</span>
+            </div>
+          ))}
+        </div>
+
+        <Separator className="my-4" />
+
+        <div className="flex justify-between font-semibold">
+          <span>Total</span>
+          <span>{formatPrice(typedOrder.total)}</span>
+        </div>
+
+        {typedOrder.shippingAddress && (
+          <>
+            <Separator className="my-4" />
+            <div>
+              <h3 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground mb-2">Shipping Address</h3>
+              <p className="text-sm">{typedOrder.shippingAddress}</p>
+            </div>
+          </>
         )}
 
-        {/* Line Items */}
-        <div>
-          <p className="font-sans text-xs text-muted-foreground uppercase tracking-wider mb-3">Items</p>
-          <div className="space-y-2">
-            {order.items.map((item) => (
-              <div key={item.productId} className="flex justify-between font-sans text-sm">
-                <span className="text-muted-foreground font-mono text-xs">{item.productId.slice(0, 16)}…</span>
-                <span className="text-foreground">× {item.quantity}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Separator className="my-4" />
 
-        {/* Totals */}
-        <div className="border-t border-border pt-4 space-y-2">
-          {transaction && isAdmin && (
-            <>
-              <div className="flex justify-between font-sans text-sm">
-                <span className="text-muted-foreground">Gross Amount</span>
-                <span className="text-foreground">{formatPrice(transaction.totalAmount)}</span>
-              </div>
-              <div className="flex justify-between font-sans text-sm">
-                <span className="text-muted-foreground">Commission</span>
-                <span className="text-muted-foreground">-{formatPrice(transaction.commissionFee)}</span>
-              </div>
-            </>
-          )}
-          <div className="flex justify-between font-sans text-base font-medium">
-            <span className="text-foreground">
-              {transaction && isAdmin ? 'Net Payout' : 'Total'}
-            </span>
-            <span className="text-gold font-serif text-xl">
-              {transaction && isAdmin
-                ? formatPrice(transaction.netPayout)
-                : formatPrice(order.total)}
-            </span>
-          </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Status</span>
+          <span className="capitalize font-medium">{typedOrder.status}</span>
         </div>
-
-        <p className="font-sans text-xs text-muted-foreground text-center pt-2 border-t border-border">
-          Thank you for shopping with Fragrance.Intl
-        </p>
       </div>
-    </main>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { useGetMyTradeOffers } from '../hooks/useQueries';
-import type { TradeOffer } from '../types';
+import type { LocalTradeOffer } from '../hooks/useQueries';
 import TradeOfferGrid from '../components/trade/TradeOfferGrid';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,15 +11,15 @@ import { ArrowLeftRight, Plus } from 'lucide-react';
 
 export default function TradeOffers() {
   const { identity } = useInternetIdentity();
-  const { data: offers, isLoading, refetch } = useGetMyTradeOffers();
+  const { data: offers, isLoading } = useGetMyTradeOffers();
 
   const currentUserId = identity?.getPrincipal().toString() ?? '';
 
   const incoming = (offers ?? []).filter(
-    (o: TradeOffer) => o.targetPrincipal === currentUserId,
+    (o: LocalTradeOffer) => String(o.recipientId) === currentUserId,
   );
   const outgoing = (offers ?? []).filter(
-    (o: TradeOffer) => o.offeredBy === currentUserId,
+    (o: LocalTradeOffer) => String(o.offererId) === currentUserId,
   );
 
   return (
@@ -57,19 +57,23 @@ export default function TradeOffers() {
         </TabsList>
 
         <TabsContent value="incoming">
-          <TradeOfferGrid
-            offers={incoming}
-            perspective="incoming"
-            isLoading={isLoading}
-          />
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map(i => <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />)}
+            </div>
+          ) : (
+            <TradeOfferGrid offers={incoming} currentUserId={currentUserId} />
+          )}
         </TabsContent>
 
         <TabsContent value="outgoing">
-          <TradeOfferGrid
-            offers={outgoing}
-            perspective="outgoing"
-            isLoading={isLoading}
-          />
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map(i => <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />)}
+            </div>
+          ) : (
+            <TradeOfferGrid offers={outgoing} currentUserId={currentUserId} />
+          )}
         </TabsContent>
       </Tabs>
     </main>

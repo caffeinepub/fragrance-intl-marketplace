@@ -1,80 +1,65 @@
 import React, { useState } from 'react';
 import { usePlaceBid } from '../../hooks/useQueries';
-import type { Auction } from '../../types';
+import type { LocalAuction } from '../../hooks/useQueries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Gavel } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface BidFormProps {
-  auction: Auction;
+  auction: LocalAuction;
 }
 
 export default function BidForm({ auction }: BidFormProps) {
-  const [bidInput, setBidInput] = useState('');
   const placeBid = usePlaceBid();
+  const [amount, setAmount] = useState('');
 
-  const minBid = auction.currentBid != null
-    ? auction.currentBid + 1
-    : auction.startingPrice;
+  const currentBidCents = auction.currentBid ?? auction.currentPrice ?? auction.startingPrice;
+  const minBid = (currentBidCents / 100) + 0.01;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(bidInput);
-    if (isNaN(amount) || amount * 100 < minBid) {
-      toast.error(`Bid must be at least $${(minBid / 100).toFixed(2)}`);
+    const parsed = parseFloat(amount);
+    if (isNaN(parsed) || parsed < minBid) {
+      toast.error(`Bid must be at least ${minBid.toFixed(2)}`);
       return;
     }
     try {
       await placeBid.mutateAsync({
-        auctionId: auction.auctionId,
-        amount: BigInt(Math.round(amount * 100)),
+        auctionId: auction.id,
+        amount: Math.round(parsed * 100),
       });
       toast.success('Bid placed successfully!');
-      setBidInput('');
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to place bid');
+      setAmount('');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to place bid');
     }
   };
 
-  if (auction.status !== 'active') {
-    return (
-      <p className="font-sans text-sm text-muted-foreground text-center py-4">
-        This auction is no longer accepting bids.
-      </p>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="space-y-1.5">
-        <Label htmlFor="bid-amount" className="font-sans text-sm">
-          Your Bid (min ${(minBid / 100).toFixed(2)})
-        </Label>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div>
+        <label className="text-sm font-medium text-foreground mb-1 block">
+          Your Bid (min: ${minBid.toFixed(2)})
+        </label>
         <Input
-          id="bid-amount"
           type="number"
           step="0.01"
-          min={(minBid / 100).toFixed(2)}
-          value={bidInput}
-          onChange={(e) => setBidInput(e.target.value)}
-          placeholder={`$${(minBid / 100).toFixed(2)}`}
-          className="font-sans text-sm border-border"
-          disabled={placeBid.isPending}
+          min={minBid}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder={`${minBid.toFixed(2)}`}
+          required
         />
       </div>
-      <Button
-        type="submit"
-        disabled={placeBid.isPending || !bidInput}
-        className="w-full font-sans bg-gold text-background hover:bg-gold/90"
-      >
+      <Button type="submit" disabled={placeBid.isPending} className="w-full">
         {placeBid.isPending ? (
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          <span className="flex items-center gap-2">
+            <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            Placing Bid…
+          </span>
         ) : (
-          <Gavel className="w-4 h-4 mr-2" />
+          'Place Bid'
         )}
-        Place Bid
       </Button>
     </form>
   );
