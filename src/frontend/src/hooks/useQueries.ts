@@ -1302,3 +1302,126 @@ export function useGetVendorTransactions() {
 export function useVendorTransactions() {
   return useGetVendorTransactions();
 }
+
+// ─── Reviews & Ratings ────────────────────────────────────────────────────────
+
+export type LocalReview = {
+  id: string;
+  productId: string;
+  storeId: string;
+  reviewer: string;
+  rating: number;
+  title: string;
+  body: string;
+  createdAt: number;
+};
+
+export type RatingSummary = {
+  averageRating: number;
+  totalReviews: number;
+  distribution: number[]; // index 0 = 1-star count, index 4 = 5-star count
+};
+
+export function useGetProductReviews(productId: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<LocalReview[]>({
+    queryKey: ["productReviews", productId],
+    queryFn: async () => {
+      if (!actor) return [];
+      const reviews = await actor.getProductReviews(productId);
+      return reviews.map((r) => ({
+        id: r.id,
+        productId: r.productId,
+        storeId: r.storeId,
+        reviewer: r.reviewer.toString(),
+        rating: Number(r.rating),
+        title: r.title,
+        body: r.body,
+        createdAt: Number(r.createdAt),
+      }));
+    },
+    enabled: !!actor && !isFetching && !!productId,
+  });
+}
+
+export function useGetProductRatingSummary(productId: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<RatingSummary>({
+    queryKey: ["productRatingSummary", productId],
+    queryFn: async () => {
+      if (!actor)
+        return {
+          averageRating: 0,
+          totalReviews: 0,
+          distribution: [0, 0, 0, 0, 0],
+        };
+      const summary = await actor.getProductRatingSummary(productId);
+      return {
+        averageRating: summary.averageRating,
+        totalReviews: Number(summary.totalReviews),
+        distribution: summary.distribution.map((d) => Number(d)),
+      };
+    },
+    enabled: !!actor && !isFetching && !!productId,
+  });
+}
+
+export function useSubmitReview() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      storeId,
+      rating,
+      title,
+      body,
+    }: {
+      productId: string;
+      storeId: string;
+      rating: number;
+      title: string;
+      body: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      await actor.submitReview(productId, storeId, BigInt(rating), title, body);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["productReviews", variables.productId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["productRatingSummary", variables.productId],
+      });
+    },
+  });
+}
+
+export function useDeleteReview() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      reviewId,
+    }: {
+      productId: string;
+      reviewId: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      await actor.deleteReview(productId, reviewId);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["productReviews", variables.productId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["productRatingSummary", variables.productId],
+      });
+    },
+  });
+}

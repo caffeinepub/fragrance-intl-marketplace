@@ -37,6 +37,16 @@ export interface ProductVariant {
   'stockAdjustment' : bigint,
   'priceAdjustment' : bigint,
 }
+export interface Review {
+  'id' : string,
+  'title' : string,
+  'body' : string,
+  'storeId' : string,
+  'createdAt' : bigint,
+  'productId' : string,
+  'rating' : bigint,
+  'reviewer' : Principal,
+}
 export interface ShoppingItem {
   'productName' : string,
   'currency' : string,
@@ -125,12 +135,22 @@ export interface _SERVICE {
     string
   >,
   'createStore' : ActorMethod<[string, string, string], StoreResponse>,
+  'deleteReview' : ActorMethod<[string, string], undefined>,
   'deleteStoreProduct' : ActorMethod<[string, string], undefined>,
   'deleteVariant' : ActorMethod<[string, string, bigint], undefined>,
   'getAllStoreIds' : ActorMethod<[], Array<string>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getProduct' : ActorMethod<[string, string], [] | [Product]>,
+  'getProductRatingSummary' : ActorMethod<
+    [string],
+    {
+      'averageRating' : number,
+      'totalReviews' : bigint,
+      'distribution' : Array<bigint>,
+    }
+  >,
+  'getProductReviews' : ActorMethod<[string], Array<Review>>,
   'getStoresByVendor' : ActorMethod<[Principal], Array<StoreResponse>>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -143,6 +163,10 @@ export interface _SERVICE {
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
+  'submitReview' : ActorMethod<
+    [string, string, bigint, string, string],
+    undefined
+  >,
   'toggleStoreActive' : ActorMethod<[string], StoreResponse>,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
   'updateStore' : ActorMethod<[string, string, string, string], StoreResponse>,

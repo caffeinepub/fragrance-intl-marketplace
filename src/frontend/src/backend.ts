@@ -89,6 +89,16 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface Review {
+    id: string;
+    title: string;
+    body: string;
+    storeId: string;
+    createdAt: bigint;
+    productId: string;
+    rating: bigint;
+    reviewer: Principal;
+}
 export interface Product {
     id: string;
     status: ProductStatus;
@@ -211,12 +221,19 @@ export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createStore(name: string, description: string, contactInfo: string): Promise<StoreResponse>;
+    deleteReview(productId: string, reviewId: string): Promise<void>;
     deleteStoreProduct(storeId: string, productId: string): Promise<void>;
     deleteVariant(storeId: string, productId: string, variantIndex: bigint): Promise<void>;
     getAllStoreIds(): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getProduct(storeId: string, productId: string): Promise<Product | null>;
+    getProductRatingSummary(productId: string): Promise<{
+        averageRating: number;
+        totalReviews: bigint;
+        distribution: Array<bigint>;
+    }>;
+    getProductReviews(productId: string): Promise<Array<Review>>;
     getStoresByVendor(vendorId: Principal): Promise<Array<StoreResponse>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
@@ -229,6 +246,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    submitReview(productId: string, storeId: string, rating: bigint, title: string, body: string): Promise<void>;
     toggleStoreActive(storeId: string): Promise<StoreResponse>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
     updateStore(storeId: string, name: string, description: string, updatedContactInfo: string): Promise<StoreResponse>;
@@ -406,6 +424,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async deleteReview(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteReview(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteReview(arg0, arg1);
+            return result;
+        }
+    }
     async deleteStoreProduct(arg0: string, arg1: string): Promise<void> {
         if (this.processError) {
             try {
@@ -488,6 +520,38 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getProduct(arg0, arg1);
             return from_candid_opt_n22(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getProductRatingSummary(arg0: string): Promise<{
+        averageRating: number;
+        totalReviews: bigint;
+        distribution: Array<bigint>;
+    }> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getProductRatingSummary(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getProductRatingSummary(arg0);
+            return result;
+        }
+    }
+    async getProductReviews(arg0: string): Promise<Array<Review>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getProductReviews(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getProductReviews(arg0);
+            return result;
         }
     }
     async getStoresByVendor(arg0: Principal): Promise<Array<StoreResponse>> {
@@ -655,6 +719,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.setStripeConfiguration(arg0);
+            return result;
+        }
+    }
+    async submitReview(arg0: string, arg1: string, arg2: bigint, arg3: string, arg4: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.submitReview(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.submitReview(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }

@@ -74,6 +74,16 @@ export const UserProfile = IDL.Record({
   'role' : IDL.Text,
   'email' : IDL.Opt(IDL.Text),
 });
+export const Review = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'body' : IDL.Text,
+  'storeId' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'productId' : IDL.Text,
+  'rating' : IDL.Nat,
+  'reviewer' : IDL.Principal,
+});
 export const StripeSessionStatus = IDL.Variant({
   'completed' : IDL.Record({
     'userPrincipal' : IDL.Opt(IDL.Text),
@@ -150,12 +160,25 @@ export const idlService = IDL.Service({
       [],
     ),
   'createStore' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [StoreResponse], []),
+  'deleteReview' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'deleteStoreProduct' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'deleteVariant' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat], [], []),
   'getAllStoreIds' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getProduct' : IDL.Func([IDL.Text, IDL.Text], [IDL.Opt(Product)], ['query']),
+  'getProductRatingSummary' : IDL.Func(
+      [IDL.Text],
+      [
+        IDL.Record({
+          'averageRating' : IDL.Float64,
+          'totalReviews' : IDL.Nat,
+          'distribution' : IDL.Vec(IDL.Nat),
+        }),
+      ],
+      ['query'],
+    ),
+  'getProductReviews' : IDL.Func([IDL.Text], [IDL.Vec(Review)], ['query']),
   'getStoresByVendor' : IDL.Func(
       [IDL.Principal],
       [IDL.Vec(StoreResponse)],
@@ -176,6 +199,11 @@ export const idlService = IDL.Service({
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+  'submitReview' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+      [],
+      [],
+    ),
   'toggleStoreActive' : IDL.Func([IDL.Text], [StoreResponse], []),
   'transform' : IDL.Func(
       [TransformationInput],
@@ -264,6 +292,16 @@ export const idlFactory = ({ IDL }) => {
     'role' : IDL.Text,
     'email' : IDL.Opt(IDL.Text),
   });
+  const Review = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'body' : IDL.Text,
+    'storeId' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'productId' : IDL.Text,
+    'rating' : IDL.Nat,
+    'reviewer' : IDL.Principal,
+  });
   const StripeSessionStatus = IDL.Variant({
     'completed' : IDL.Record({
       'userPrincipal' : IDL.Opt(IDL.Text),
@@ -341,6 +379,7 @@ export const idlFactory = ({ IDL }) => {
         [StoreResponse],
         [],
       ),
+    'deleteReview' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'deleteStoreProduct' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'deleteVariant' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat], [], []),
     'getAllStoreIds' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
@@ -351,6 +390,18 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(Product)],
         ['query'],
       ),
+    'getProductRatingSummary' : IDL.Func(
+        [IDL.Text],
+        [
+          IDL.Record({
+            'averageRating' : IDL.Float64,
+            'totalReviews' : IDL.Nat,
+            'distribution' : IDL.Vec(IDL.Nat),
+          }),
+        ],
+        ['query'],
+      ),
+    'getProductReviews' : IDL.Func([IDL.Text], [IDL.Vec(Review)], ['query']),
     'getStoresByVendor' : IDL.Func(
         [IDL.Principal],
         [IDL.Vec(StoreResponse)],
@@ -371,6 +422,11 @@ export const idlFactory = ({ IDL }) => {
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+    'submitReview' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+        [],
+        [],
+      ),
     'toggleStoreActive' : IDL.Func([IDL.Text], [StoreResponse], []),
     'transform' : IDL.Func(
         [TransformationInput],

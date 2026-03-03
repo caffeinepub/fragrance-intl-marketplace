@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,9 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { ArrowLeft, Package, ShoppingCart } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import type { Product } from "../backend";
+import { RatingSummary } from "../components/reviews/RatingSummary";
+import { ReviewList } from "../components/reviews/ReviewList";
+import { SubmitReviewForm } from "../components/reviews/SubmitReviewForm";
 import { useAddToCart, useGetProduct } from "../hooks/useQueries";
 
 function formatPrice(price: bigint | number): string {
@@ -310,6 +314,45 @@ export default function ProductDetail() {
           </Button>
         </div>
       </div>
+
+      {/* ── Reviews Section ──────────────────────────────────────────────────── */}
+      {productId && storeId && (
+        <>
+          <Separator className="my-10" />
+
+          <section aria-labelledby="reviews-heading">
+            <h2
+              id="reviews-heading"
+              className="text-2xl font-bold text-foreground mb-8"
+            >
+              Customer Reviews
+            </h2>
+
+            {/* Summary + Write Review */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+              {/* Rating summary */}
+              <div>
+                <RatingSummary productId={productId} />
+              </div>
+
+              {/* Submit review form */}
+              <Card className="border border-border/60 luxury-shadow">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold">
+                    Write a Review
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SubmitReviewForm productId={productId} storeId={storeId} />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Review list */}
+            <ReviewList productId={productId} storeId={storeId} />
+          </section>
+        </>
+      )}
     </div>
   );
 }

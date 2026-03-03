@@ -23,6 +23,7 @@ actor {
   include MixinStorage();
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
+
   let approvalState = UserApproval.initState(accessControlState);
 
   type ProductType = { #physical; #digital; #service };
@@ -616,5 +617,150 @@ actor {
     let updatedProduct = { product with variants = newVariantsList.toArray() };
     storeProductsMap.add(productId, updatedProduct);
   };
-};
 
+  // Reviews & Ratings
+
+  type Review = {
+    id : Text;
+    productId : Text;
+    storeId : Text;
+    reviewer : Principal;
+    rating : Nat;
+    title : Text;
+    body : Text;
+    createdAt : Int;
+  };
+
+  // Using stable Map for reviews keyed by productId with List for reviews per product
+  let reviews = Map.empty<Text, List.List<Review>>();
+
+  // Submit a new review (one review per user per product)
+  public shared ({ caller }) func submitReview(productId : Text, storeId : Text, rating : Nat, title : Text, body : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can submit reviews");
+    };
+
+    if (rating < 1 or rating > 5) {
+      Runtime.trap("Rating must be between 1 and 5");
+    };
+
+    // Verify store exists
+    let store = switch (stores.get(storeId)) {
+      case (null) { Runtime.trap("Store not found") };
+      case (?s) { s };
+    };
+
+    // Verify product exists in the specified store
+    let storeProductsMap = switch (storeProducts.get(storeId)) {
+      case (null) { Runtime.trap("Store has no products") };
+      case (?p) { p };
+    };
+
+    let product = switch (storeProductsMap.get(productId)) {
+      case (null) { Runtime.trap("Product not found in this store") };
+      case (?p) { p };
+    };
+
+    // Check if user already reviewed this product
+    let existingReviews = switch (reviews.get(productId)) {
+      case (null) { [] };
+      case (?reviewList) { reviewList.toArray() };
+    };
+    for (existingReview in existingReviews.values()) {
+      if (existingReview.reviewer == caller) {
+        Runtime.trap("You have already reviewed this product");
+      };
+    };
+
+    let reviewId = "review-" # Time.now().toText();
+    let review : Review = {
+      id = reviewId;
+      productId;
+      storeId;
+      reviewer = caller;
+      rating;
+      title;
+      body;
+      createdAt = Time.now();
+    };
+
+    // Add review to List and store in Map
+    let productReviews = switch (reviews.get(productId)) {
+      case (null) { List.empty<Review>() };
+      case (?reviewList) { reviewList };
+    };
+
+    productReviews.add(review);
+    reviews.add(productId, productReviews);
+  };
+
+  public query func getProductReviews(productId : Text) : async [Review] {
+    switch (reviews.get(productId)) {
+      case (null) { [] };
+      case (?reviewList) { reviewList.values().toArray() };
+    };
+  };
+
+  public query func getProductRatingSummary(productId : Text) : async {
+    averageRating : Float;
+    totalReviews : Nat;
+    distribution : [Nat];
+  } {
+    let productReviews = switch (reviews.get(productId)) {
+      case (null) { List.empty<Review>() };
+      case (?reviewList) { reviewList };
+    };
+
+    let reviewsArray = productReviews.toArray();
+    let reviewCount = reviewsArray.size();
+
+    if (reviewCount == 0) {
+      return {
+        averageRating = 0.0;
+        totalReviews = 0;
+        distribution = [0, 0, 0, 0, 0];
+      };
+    };
+
+    var totalRating = 0;
+    let distributionArray = [0, 0, 0, 0, 0].toVarArray<Nat>();
+
+    for (review in reviewsArray.values()) {
+      totalRating += review.rating;
+      switch (review.rating) {
+        case (1) { distributionArray[0] += 1 };
+        case (2) { distributionArray[1] += 1 };
+        case (3) { distributionArray[2] += 1 };
+        case (4) { distributionArray[3] += 1 };
+        case (5) { distributionArray[4] += 1 };
+        case (_) {};
+      };
+    };
+
+    {
+      averageRating = totalRating.toFloat() / reviewCount.toInt().toFloat();
+      totalReviews = reviewCount;
+      distribution = distributionArray.toArray();
+    };
+  };
+
+  public shared ({ caller }) func deleteReview(productId : Text, reviewId : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete reviews");
+    };
+
+    let productReviews = switch (reviews.get(productId)) {
+      case (null) { Runtime.trap("No reviews found for product") };
+      case (?reviewList) { reviewList };
+    };
+
+    let filteredReviews = List.empty<Review>();
+    for (r in productReviews.values()) {
+      if (r.id != reviewId) {
+        filteredReviews.add(r);
+      };
+    };
+
+    reviews.add(productId, filteredReviews);
+  };
+};

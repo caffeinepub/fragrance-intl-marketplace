@@ -1,12 +1,28 @@
-# Specification
+# Fragrance.Intl Marketplace
 
-## Summary
-**Goal:** Dynamically update the displayed price and stock availability on the ProductDetail page and ProductCard component when a variant is selected, using already-loaded data without additional backend calls.
+## Current State
+The marketplace has a working backend with stores, products, variants, orders, Stripe payments, vendor payouts, and access control. Products are displayed with variant selection and dynamic pricing. The frontend shows product pages correctly.
 
-**Planned changes:**
-- On the ProductDetail page, update the displayed price and stock status immediately when the user selects a variant, using data already present in the product query.
-- Disable the Add to Cart button and show an out-of-stock message when the selected variant has zero stock.
-- Ensure the initial render shows the price and stock of the first/default variant.
-- On the ProductCard component, update the displayed price and stock badge when a variant is selected, with changes local to that card only.
+## Requested Changes (Diff)
 
-**User-visible outcome:** Users see the correct price and stock status update instantly when switching between variants on both the product detail page and product cards, with no page reload required.
+### Add
+- `Review` type: `id`, `productId`, `storeId`, `reviewer` (Principal), `rating` (1–5), `title`, `body`, `createdAt`
+- `reviews` stable map: `productId -> List<Review>`
+- `submitReview(productId, storeId, rating, title, body)` — authenticated users only, one review per user per product
+- `getProductReviews(productId)` — public query returning `[Review]`
+- `getProductRatingSummary(productId)` — public query returning `{ averageRating: Float; totalReviews: Nat; distribution: [Nat] }` (distribution = count per star 1–5)
+- `deleteReview(productId, reviewId)` — admin/moderator only
+
+### Modify
+- Nothing structural changed in existing types
+
+### Remove
+- Nothing removed
+
+## Implementation Plan
+1. Add `Review` type definition to main.mo
+2. Add `reviews` map (`productId -> List<Review>`)
+3. Implement `submitReview` with one-review-per-user guard
+4. Implement `getProductReviews` public query
+5. Implement `getProductRatingSummary` public query
+6. Implement `deleteReview` for admin/moderator

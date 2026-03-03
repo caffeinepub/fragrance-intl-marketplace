@@ -7,6 +7,16 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
+export interface Review {
+    id: string;
+    title: string;
+    body: string;
+    storeId: string;
+    createdAt: bigint;
+    productId: string;
+    rating: bigint;
+    reviewer: Principal;
+}
 export interface Product {
     id: string;
     status: ProductStatus;
@@ -111,12 +121,19 @@ export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createStore(name: string, description: string, contactInfo: string): Promise<StoreResponse>;
+    deleteReview(productId: string, reviewId: string): Promise<void>;
     deleteStoreProduct(storeId: string, productId: string): Promise<void>;
     deleteVariant(storeId: string, productId: string, variantIndex: bigint): Promise<void>;
     getAllStoreIds(): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getProduct(storeId: string, productId: string): Promise<Product | null>;
+    getProductRatingSummary(productId: string): Promise<{
+        averageRating: number;
+        totalReviews: bigint;
+        distribution: Array<bigint>;
+    }>;
+    getProductReviews(productId: string): Promise<Array<Review>>;
     getStoresByVendor(vendorId: Principal): Promise<Array<StoreResponse>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
@@ -129,6 +146,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    submitReview(productId: string, storeId: string, rating: bigint, title: string, body: string): Promise<void>;
     toggleStoreActive(storeId: string): Promise<StoreResponse>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
     updateStore(storeId: string, name: string, description: string, updatedContactInfo: string): Promise<StoreResponse>;
