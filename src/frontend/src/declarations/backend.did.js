@@ -74,6 +74,21 @@ export const UserProfile = IDL.Record({
   'role' : IDL.Text,
   'email' : IDL.Opt(IDL.Text),
 });
+export const WholesaleAccountStatus = IDL.Variant({
+  'pending' : IDL.Null,
+  'approved' : IDL.Null,
+  'rejected' : IDL.Null,
+});
+export const WholesaleAccount = IDL.Record({
+  'id' : IDL.Text,
+  'status' : WholesaleAccountStatus,
+  'applicant' : IDL.Principal,
+  'taxId' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'businessName' : IDL.Text,
+  'reviewedAt' : IDL.Opt(IDL.Int),
+  'reviewedBy' : IDL.Opt(IDL.Principal),
+});
 export const Review = IDL.Record({
   'id' : IDL.Text,
   'title' : IDL.Text,
@@ -90,6 +105,11 @@ export const StripeSessionStatus = IDL.Variant({
     'response' : IDL.Text,
   }),
   'failed' : IDL.Record({ 'error' : IDL.Text }),
+});
+export const WholesaleTier = IDL.Record({
+  'tierLabel' : IDL.Text,
+  'minQty' : IDL.Nat,
+  'pricePerUnit' : IDL.Nat,
 });
 export const ApprovalStatus = IDL.Variant({
   'pending' : IDL.Null,
@@ -153,6 +173,7 @@ export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addProductToStore' : IDL.Func([IDL.Text, Product], [], []),
   'addVariant' : IDL.Func([IDL.Text, IDL.Text, ProductVariant], [], []),
+  'approveWholesaleAccount' : IDL.Func([IDL.Principal], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'createCheckoutSession' : IDL.Func(
       [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
@@ -166,6 +187,11 @@ export const idlService = IDL.Service({
   'getAllStoreIds' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getMyWholesaleAccount' : IDL.Func(
+      [],
+      [IDL.Opt(WholesaleAccount)],
+      ['query'],
+    ),
   'getProduct' : IDL.Func([IDL.Text, IDL.Text], [IDL.Opt(Product)], ['query']),
   'getProductRatingSummary' : IDL.Func(
       [IDL.Text],
@@ -190,15 +216,37 @@ export const idlService = IDL.Service({
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
+  'getWholesalePrice' : IDL.Func(
+      [IDL.Text, IDL.Nat],
+      [IDL.Opt(IDL.Nat)],
+      ['query'],
+    ),
+  'getWholesaleTiers' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(WholesaleTier)],
+      ['query'],
+    ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
   'listStoreProducts' : IDL.Func([IDL.Text], [IDL.Vec(Product)], ['query']),
+  'listWholesaleApplications' : IDL.Func(
+      [],
+      [IDL.Vec(WholesaleAccount)],
+      ['query'],
+    ),
+  'registerWholesaleAccount' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'rejectWholesaleAccount' : IDL.Func([IDL.Principal], [], []),
   'requestApproval' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+  'setWholesaleTiers' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Vec(WholesaleTier)],
+      [],
+      [],
+    ),
   'submitReview' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
       [],
@@ -292,6 +340,21 @@ export const idlFactory = ({ IDL }) => {
     'role' : IDL.Text,
     'email' : IDL.Opt(IDL.Text),
   });
+  const WholesaleAccountStatus = IDL.Variant({
+    'pending' : IDL.Null,
+    'approved' : IDL.Null,
+    'rejected' : IDL.Null,
+  });
+  const WholesaleAccount = IDL.Record({
+    'id' : IDL.Text,
+    'status' : WholesaleAccountStatus,
+    'applicant' : IDL.Principal,
+    'taxId' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'businessName' : IDL.Text,
+    'reviewedAt' : IDL.Opt(IDL.Int),
+    'reviewedBy' : IDL.Opt(IDL.Principal),
+  });
   const Review = IDL.Record({
     'id' : IDL.Text,
     'title' : IDL.Text,
@@ -308,6 +371,11 @@ export const idlFactory = ({ IDL }) => {
       'response' : IDL.Text,
     }),
     'failed' : IDL.Record({ 'error' : IDL.Text }),
+  });
+  const WholesaleTier = IDL.Record({
+    'tierLabel' : IDL.Text,
+    'minQty' : IDL.Nat,
+    'pricePerUnit' : IDL.Nat,
   });
   const ApprovalStatus = IDL.Variant({
     'pending' : IDL.Null,
@@ -368,6 +436,7 @@ export const idlFactory = ({ IDL }) => {
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addProductToStore' : IDL.Func([IDL.Text, Product], [], []),
     'addVariant' : IDL.Func([IDL.Text, IDL.Text, ProductVariant], [], []),
+    'approveWholesaleAccount' : IDL.Func([IDL.Principal], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createCheckoutSession' : IDL.Func(
         [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
@@ -385,6 +454,11 @@ export const idlFactory = ({ IDL }) => {
     'getAllStoreIds' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getMyWholesaleAccount' : IDL.Func(
+        [],
+        [IDL.Opt(WholesaleAccount)],
+        ['query'],
+      ),
     'getProduct' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Opt(Product)],
@@ -413,15 +487,37 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
+    'getWholesalePrice' : IDL.Func(
+        [IDL.Text, IDL.Nat],
+        [IDL.Opt(IDL.Nat)],
+        ['query'],
+      ),
+    'getWholesaleTiers' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(WholesaleTier)],
+        ['query'],
+      ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
     'listStoreProducts' : IDL.Func([IDL.Text], [IDL.Vec(Product)], ['query']),
+    'listWholesaleApplications' : IDL.Func(
+        [],
+        [IDL.Vec(WholesaleAccount)],
+        ['query'],
+      ),
+    'registerWholesaleAccount' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'rejectWholesaleAccount' : IDL.Func([IDL.Principal], [], []),
     'requestApproval' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+    'setWholesaleTiers' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Vec(WholesaleTier)],
+        [],
+        [],
+      ),
     'submitReview' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
         [],

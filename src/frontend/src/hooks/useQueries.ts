@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  type ApprovalStatus,
   type Product as BackendProduct,
   type ProductVariant as BackendProductVariant,
   ProductStatus,
@@ -9,9 +8,14 @@ import {
   type StoreResponse,
   type UserProfile,
   type UserRole,
+  type WholesaleAccount,
+  type WholesaleTier,
 } from "../backend";
 import type { SearchFilter } from "../types/index";
 import { useActor } from "./useActor";
+
+// ApprovalStatus is not exported from backend.d.ts — define locally to avoid build errors
+export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 // ─── Type helpers ────────────────────────────────────────────────────────────
 
@@ -1423,5 +1427,143 @@ export function useDeleteReview() {
         queryKey: ["productRatingSummary", variables.productId],
       });
     },
+  });
+}
+
+// ─── Wholesale ────────────────────────────────────────────────────────────────
+
+/** Fetch the current user's wholesale account status */
+export function useGetMyWholesaleAccount() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<WholesaleAccount | null>({
+    queryKey: ["myWholesaleAccount"],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getMyWholesaleAccount();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+/** Register current user for a wholesale account */
+export function useRegisterWholesaleAccount() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      businessName,
+      taxId,
+    }: {
+      businessName: string;
+      taxId: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      await actor.registerWholesaleAccount(businessName, taxId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["myWholesaleAccount"] });
+    },
+  });
+}
+
+/** List all wholesale applications (admin only) */
+export function useListWholesaleApplications() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<WholesaleAccount[]>({
+    queryKey: ["wholesaleApplications"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listWholesaleApplications();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+/** Approve a wholesale account (admin only) */
+export function useApproveWholesaleAccount() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (applicant: any) => {
+      if (!actor) throw new Error("Actor not available");
+      await actor.approveWholesaleAccount(applicant);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wholesaleApplications"] });
+    },
+  });
+}
+
+/** Reject a wholesale account (admin only) */
+export function useRejectWholesaleAccount() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (applicant: any) => {
+      if (!actor) throw new Error("Actor not available");
+      await actor.rejectWholesaleAccount(applicant);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wholesaleApplications"] });
+    },
+  });
+}
+
+/** Get wholesale tiers for a product */
+export function useGetWholesaleTiers(productId?: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<WholesaleTier[]>({
+    queryKey: ["wholesaleTiers", productId],
+    queryFn: async () => {
+      if (!actor || !productId) return [];
+      return actor.getWholesaleTiers(productId);
+    },
+    enabled: !!actor && !isFetching && !!productId,
+  });
+}
+
+/** Set wholesale tiers for a product (vendor action) */
+export function useSetWholesaleTiers() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      productId,
+      tiers,
+    }: {
+      storeId: string;
+      productId: string;
+      tiers: WholesaleTier[];
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      await actor.setWholesaleTiers(storeId, productId, tiers);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["wholesaleTiers", variables.productId],
+      });
+    },
+  });
+}
+
+/** Get wholesale price for a product at a given quantity */
+export function useGetWholesalePrice(productId?: string, quantity?: bigint) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<bigint | null>({
+    queryKey: ["wholesalePrice", productId, quantity?.toString()],
+    queryFn: async () => {
+      if (!actor || !productId || quantity === undefined) return null;
+      return actor.getWholesalePrice(productId, quantity);
+    },
+    enabled: !!actor && !isFetching && !!productId && quantity !== undefined,
   });
 }

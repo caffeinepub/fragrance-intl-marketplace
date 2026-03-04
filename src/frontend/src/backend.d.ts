@@ -30,12 +30,27 @@ export interface Product {
     image?: Principal;
     price: bigint;
 }
+export interface WholesaleAccount {
+    id: string;
+    status: WholesaleAccountStatus;
+    applicant: Principal;
+    taxId: string;
+    createdAt: bigint;
+    businessName: string;
+    reviewedAt?: bigint;
+    reviewedBy?: Principal;
+}
 export interface TransformationOutput {
     status: bigint;
     body: Uint8Array;
     headers: Array<http_header>;
 }
 export type Time = bigint;
+export interface WholesaleTier {
+    tierLabel: string;
+    minQty: bigint;
+    pricePerUnit: bigint;
+}
 export interface ProductVariant {
     value: string;
     name: string;
@@ -96,11 +111,6 @@ export interface UserProfile {
     role: string;
     email?: string;
 }
-export enum ApprovalStatus {
-    pending = "pending",
-    approved = "approved",
-    rejected = "rejected"
-}
 export enum ProductStatus {
     active = "active",
     inactive = "inactive"
@@ -115,9 +125,15 @@ export enum UserRole {
     user = "user",
     guest = "guest"
 }
+export enum WholesaleAccountStatus {
+    pending = "pending",
+    approved = "approved",
+    rejected = "rejected"
+}
 export interface backendInterface {
     addProductToStore(storeId: string, product: Product): Promise<void>;
     addVariant(storeId: string, productId: string, variant: ProductVariant): Promise<void>;
+    approveWholesaleAccount(applicant: Principal): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createStore(name: string, description: string, contactInfo: string): Promise<StoreResponse>;
@@ -127,6 +143,7 @@ export interface backendInterface {
     getAllStoreIds(): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getMyWholesaleAccount(): Promise<WholesaleAccount | null>;
     getProduct(storeId: string, productId: string): Promise<Product | null>;
     getProductRatingSummary(productId: string): Promise<{
         averageRating: number;
@@ -137,15 +154,21 @@ export interface backendInterface {
     getStoresByVendor(vendorId: Principal): Promise<Array<StoreResponse>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getWholesalePrice(productId: string, quantity: bigint): Promise<bigint | null>;
+    getWholesaleTiers(productId: string): Promise<Array<WholesaleTier>>;
     isCallerAdmin(): Promise<boolean>;
     isCallerApproved(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
     listApprovals(): Promise<Array<UserApprovalInfo>>;
     listStoreProducts(storeId: string): Promise<Array<Product>>;
+    listWholesaleApplications(): Promise<Array<WholesaleAccount>>;
+    registerWholesaleAccount(businessName: string, taxId: string): Promise<void>;
+    rejectWholesaleAccount(applicant: Principal): Promise<void>;
     requestApproval(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    setWholesaleTiers(storeId: string, productId: string, tiers: Array<WholesaleTier>): Promise<void>;
     submitReview(productId: string, storeId: string, rating: bigint, title: string, body: string): Promise<void>;
     toggleStoreActive(storeId: string): Promise<StoreResponse>;
     transform(input: TransformationInput): Promise<TransformationOutput>;

@@ -1,7 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Layers, Package, ShoppingBag, Store } from "lucide-react";
+import {
+  ArrowRight,
+  Layers,
+  Package,
+  ShoppingBag,
+  Store,
+  Tag,
+} from "lucide-react";
 import React, { useState, useEffect } from "react";
 import AccessDenied from "../components/common/AccessDenied";
 import StoreListManager from "../components/vendor/StoreListManager";
@@ -65,7 +72,7 @@ function VendorDashboardContent() {
       )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded p-5">
           <div className="flex items-center gap-3 mb-2">
             <Store className="w-5 h-5 text-gold" />
@@ -91,6 +98,25 @@ function VendorDashboardContent() {
           >
             <Link to="/vendor/products">
               Manage Products
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Link>
+          </Button>
+        </div>
+        <div className="bg-card border border-border rounded p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <Tag className="w-5 h-5 text-gold" />
+            <span className="font-sans text-sm text-muted-foreground">
+              Wholesale
+            </span>
+          </div>
+          <Button
+            asChild
+            variant="ghost"
+            className="p-0 h-auto font-serif text-xl text-foreground hover:text-gold"
+            data-ocid="vendor.wholesale_link"
+          >
+            <Link to="/vendor/wholesale">
+              Wholesale Pricing
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>
           </Button>

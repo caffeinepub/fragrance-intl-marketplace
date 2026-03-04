@@ -5,7 +5,12 @@ import type { Principal } from "@icp-sdk/core/principal";
 import { CheckCircle, Clock, Loader2, Users, XCircle } from "lucide-react";
 import React, { useState } from "react";
 import { toast } from "sonner";
-import { ApprovalStatus } from "../../backend";
+// ApprovalStatus is not exported from backend.d.ts — define locally
+enum ApprovalStatus {
+  pending = "pending",
+  approved = "approved",
+  rejected = "rejected",
+}
 import { useListApprovals, useSetApproval } from "../../hooks/useQueries";
 
 const statusConfig = {

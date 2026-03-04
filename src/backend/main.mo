@@ -1,13 +1,13 @@
-import Iter "mo:core/Iter";
-import Array "mo:core/Array";
 import List "mo:core/List";
-import Nat "mo:core/Nat";
-import Runtime "mo:core/Runtime";
-import Int "mo:core/Int";
-import Time "mo:core/Time";
 import Map "mo:core/Map";
-import Text "mo:core/Text";
+import Nat "mo:core/Nat";
+import Time "mo:core/Time";
 import Order "mo:core/Order";
+import Array "mo:core/Array";
+import Int "mo:core/Int";
+import Text "mo:core/Text";
+import Iter "mo:core/Iter";
+import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import Storage "blob-storage/Storage";
@@ -17,8 +17,10 @@ import AccessControl "authorization/access-control";
 import UserApproval "user-approval/approval";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
+import Migration "migration";
 
 
+(with migration = Migration.run)
 actor {
   include MixinStorage();
   let accessControlState = AccessControl.initState();
@@ -67,7 +69,6 @@ actor {
     principal : Text;
   };
 
-  // New ProductVariant type
   type ProductVariant = {
     name : Text;
     value : Text;
@@ -89,9 +90,7 @@ actor {
     variants : [ProductVariant];
   };
 
-  // Store-level product map (stable variable): storeId -> (productId -> Product)
   let storeProducts = Map.empty<Text, Map.Map<Text, Product>>();
-  // Stable products map by productId
   let products = Map.empty<Text, Product>();
 
   module Product {
@@ -517,8 +516,6 @@ actor {
     };
   };
 
-  // Backend Variant Management Functions
-
   public shared ({ caller }) func addVariant(storeId : Text, productId : Text, variant : ProductVariant) : async () {
     let store = switch (stores.get(storeId)) {
       case (?s) { s };
@@ -631,10 +628,8 @@ actor {
     createdAt : Int;
   };
 
-  // Using stable Map for reviews keyed by productId with List for reviews per product
   let reviews = Map.empty<Text, List.List<Review>>();
 
-  // Submit a new review (one review per user per product)
   public shared ({ caller }) func submitReview(productId : Text, storeId : Text, rating : Nat, title : Text, body : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only authenticated users can submit reviews");
@@ -644,13 +639,11 @@ actor {
       Runtime.trap("Rating must be between 1 and 5");
     };
 
-    // Verify store exists
     let store = switch (stores.get(storeId)) {
       case (null) { Runtime.trap("Store not found") };
       case (?s) { s };
     };
 
-    // Verify product exists in the specified store
     let storeProductsMap = switch (storeProducts.get(storeId)) {
       case (null) { Runtime.trap("Store has no products") };
       case (?p) { p };
@@ -661,7 +654,6 @@ actor {
       case (?p) { p };
     };
 
-    // Check if user already reviewed this product
     let existingReviews = switch (reviews.get(productId)) {
       case (null) { [] };
       case (?reviewList) { reviewList.toArray() };
@@ -684,7 +676,6 @@ actor {
       createdAt = Time.now();
     };
 
-    // Add review to List and store in Map
     let productReviews = switch (reviews.get(productId)) {
       case (null) { List.empty<Review>() };
       case (?reviewList) { reviewList };
@@ -762,5 +753,216 @@ actor {
     };
 
     reviews.add(productId, filteredReviews);
+  };
+
+  //// WHOLESALE FEATURES
+
+  public type WholesaleTier = {
+    minQty : Nat;
+    pricePerUnit : Nat;
+    tierLabel : Text;
+  };
+
+  public type WholesaleAccountStatus = {
+    #pending;
+    #approved;
+    #rejected;
+  };
+
+  public type WholesaleAccount = {
+    id : Text;
+    applicant : Principal;
+    businessName : Text;
+    taxId : Text;
+    status : WholesaleAccountStatus;
+    createdAt : Int;
+    reviewedBy : ?Principal;
+    reviewedAt : ?Int;
+  };
+
+  let wholesaleTiers = Map.empty<Text, List.List<WholesaleTier>>();
+  let wholesaleAccounts = Map.empty<Principal, WholesaleAccount>();
+
+  public shared ({ caller }) func setWholesaleTiers(storeId : Text, productId : Text, tiers : [WholesaleTier]) : async () {
+    let store = switch (stores.get(storeId)) {
+      case (?s) { s };
+      case (null) { Runtime.trap("Store not found") };
+    };
+
+    if (not (AccessControl.isAdmin(accessControlState, caller)) and (store.vendorId != caller)) {
+      Runtime.trap("Unauthorized: Only the store owner or an admin can set wholesale tiers");
+    };
+
+    let storeProductsMap = switch (storeProducts.get(storeId)) {
+      case (?p) { p };
+      case (null) { Runtime.trap("Product not found") };
+    };
+
+    let _ = switch (storeProductsMap.get(productId)) {
+      case (?product) { product };
+      case (null) { Runtime.trap("Product not found") };
+    };
+
+    let tierList = List.empty<WholesaleTier>();
+    for (tier in tiers.values()) {
+      tierList.add(tier);
+    };
+
+    wholesaleTiers.add(productId, tierList);
+  };
+
+  public query func getWholesaleTiers(productId : Text) : async [WholesaleTier] {
+    switch (wholesaleTiers.get(productId)) {
+      case (?tiers) { tiers.values().toArray() };
+      case (null) { [] };
+    };
+  };
+
+  public query func getWholesalePrice(productId : Text, quantity : Nat) : async ?Nat {
+    let bestTier = findBestTier(productId, quantity);
+    switch (bestTier) {
+      case (null) { null };
+      case (?tier) { ?tier.pricePerUnit };
+    };
+  };
+
+  func findBestTier(productId : Text, quantity : Nat) : ?WholesaleTier {
+    let tiers = switch (wholesaleTiers.get(productId)) {
+      case (?tiers) { tiers.values().toArray() };
+      case (null) { return null };
+    };
+
+    var bestTier : ?WholesaleTier = null;
+    for (tier in tiers.values()) {
+      let tryUpdate = switch (bestTier) {
+        case (null) { true };
+        case (?currentTier) {
+          quantity >= tier.minQty and tier.minQty > currentTier.minQty
+        };
+      };
+      if (quantity >= tier.minQty and tryUpdate) {
+        bestTier := ?tier;
+      };
+    };
+
+    bestTier;
+  };
+
+  // Helper function to find a product by productId across all stores
+  func findProduct(productId : Text) : (Text, Product) {
+    for ((storeId, productsMap) in storeProducts.entries()) {
+      switch (productsMap.get(productId)) {
+        case (?product) {
+          return (storeId, product);
+        };
+        case (null) {};
+      };
+    };
+    Runtime.trap("Product not found");
+  };
+
+  public shared ({ caller }) func registerWholesaleAccount(businessName : Text, taxId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can register for a wholesale account");
+    };
+
+    switch (wholesaleAccounts.get(caller)) {
+      case (null) {};
+      case (?existingAccount) {
+        switch (existingAccount.status) {
+          case (#pending) { Runtime.trap("You already have a pending application") };
+          case (#approved) { Runtime.trap("You already have an approved wholesale account") };
+          case (#rejected) {};
+        };
+      };
+    };
+
+    let account : WholesaleAccount = {
+      id = "wholesale-" # Time.now().toText();
+      applicant = caller;
+      businessName;
+      taxId;
+      status = #pending;
+      createdAt = Time.now();
+      reviewedBy = null;
+      reviewedAt = null;
+    };
+
+    wholesaleAccounts.add(caller, account);
+  };
+
+  public query ({ caller }) func getMyWholesaleAccount() : async ?WholesaleAccount {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can view their wholesale account");
+    };
+
+    switch (wholesaleAccounts.get(caller)) {
+      case (?account) { ?account };
+      case (null) { null };
+    };
+  };
+
+  public query ({ caller }) func listWholesaleApplications() : async [WholesaleAccount] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can list wholesale applications");
+    };
+
+    wholesaleAccounts.values().toArray();
+  };
+
+  public shared ({ caller }) func approveWholesaleAccount(applicant : Principal) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can approve wholesale accounts");
+    };
+
+    let account = switch (wholesaleAccounts.get(applicant)) {
+      case (?account) { account };
+      case (null) { Runtime.trap("Application not found") };
+    };
+
+    if (account.status != #pending) {
+      Runtime.trap("Application is not pending");
+    };
+
+    let updatedAccount : WholesaleAccount = {
+      id = account.id;
+      applicant = account.applicant;
+      businessName = account.businessName;
+      taxId = account.taxId;
+      status = #approved;
+      createdAt = account.createdAt;
+      reviewedBy = ?caller;
+      reviewedAt = ?Time.now();
+    };
+
+    wholesaleAccounts.add(applicant, updatedAccount);
+  };
+
+  public shared ({ caller }) func rejectWholesaleAccount(applicant : Principal) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can reject wholesale accounts");
+    };
+
+    let account = switch (wholesaleAccounts.get(applicant)) {
+      case (?account) { account };
+      case (null) { Runtime.trap("Application not found") };
+    };
+
+    if (account.status != #pending) {
+      Runtime.trap("Application is not pending");
+    };
+
+    let updatedAccount : WholesaleAccount = {
+      id = account.id;
+      applicant = account.applicant;
+      businessName = account.businessName;
+      taxId = account.taxId;
+      status = #rejected;
+      createdAt = account.createdAt;
+      reviewedBy = ?caller;
+      reviewedAt = ?Time.now();
+    };
+
+    wholesaleAccounts.add(applicant, updatedAccount);
   };
 };

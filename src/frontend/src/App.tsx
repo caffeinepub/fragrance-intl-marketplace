@@ -32,6 +32,8 @@ import TradeOffers from "./pages/TradeOffers";
 import VendorDashboard from "./pages/VendorDashboard";
 import VendorProducts from "./pages/VendorProducts";
 import VendorRegistration from "./pages/VendorRegistration";
+import VendorWholesalePricing from "./pages/VendorWholesalePricing";
+import WholesaleRegistration from "./pages/WholesaleRegistration";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -169,6 +171,18 @@ const newTradeOfferRoute = createRoute({
   component: NewTradeOffer,
 });
 
+const wholesaleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/wholesale",
+  component: WholesaleRegistration,
+});
+
+const vendorWholesaleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/vendor/wholesale",
+  component: VendorWholesalePricing,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   productsRoute,
@@ -188,6 +202,8 @@ const routeTree = rootRoute.addChildren([
   auctionDetailRoute,
   tradeOffersRoute,
   newTradeOfferRoute,
+  wholesaleRoute,
+  vendorWholesaleRoute,
 ]);
 
 const router = createRouter({ routeTree });

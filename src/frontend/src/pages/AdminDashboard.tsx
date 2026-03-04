@@ -1,12 +1,14 @@
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Shield } from "lucide-react";
+import { AlertTriangle, Building2, Shield } from "lucide-react";
 import React from "react";
 import ApprovalDashboard from "../components/admin/ApprovalDashboard";
 import AuctionManagementPanel from "../components/admin/AuctionManagementPanel";
 import OrderManagementPanel from "../components/admin/OrderManagementPanel";
 import PayoutManagementPanel from "../components/admin/PayoutManagementPanel";
 import TradeOfferManagementPanel from "../components/admin/TradeOfferManagementPanel";
+import WholesaleManagementPanel from "../components/admin/WholesaleManagementPanel";
 import { useIsCallerAdmin } from "../hooks/useQueries";
 
 export default function AdminDashboard() {
@@ -55,13 +57,68 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="space-y-8">
-        <ApprovalDashboard />
-        <OrderManagementPanel />
-        <PayoutManagementPanel />
-        <AuctionManagementPanel />
-        <TradeOfferManagementPanel />
-      </div>
+      <Tabs defaultValue="approvals" className="space-y-6">
+        <TabsList className="flex flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="approvals" className="text-sm">
+            Approvals
+          </TabsTrigger>
+          <TabsTrigger value="orders" className="text-sm">
+            Orders
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="text-sm">
+            Payouts
+          </TabsTrigger>
+          <TabsTrigger value="auctions" className="text-sm">
+            Auctions
+          </TabsTrigger>
+          <TabsTrigger value="trade" className="text-sm">
+            Trade Offers
+          </TabsTrigger>
+          <TabsTrigger
+            value="wholesale"
+            data-ocid="admin.wholesale_accounts_table"
+            className="text-sm gap-1.5"
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            Wholesale
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="approvals">
+          <ApprovalDashboard />
+        </TabsContent>
+
+        <TabsContent value="orders">
+          <OrderManagementPanel />
+        </TabsContent>
+
+        <TabsContent value="payouts">
+          <PayoutManagementPanel />
+        </TabsContent>
+
+        <TabsContent value="auctions">
+          <AuctionManagementPanel />
+        </TabsContent>
+
+        <TabsContent value="trade">
+          <TradeOfferManagementPanel />
+        </TabsContent>
+
+        <TabsContent value="wholesale">
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-serif text-xl text-foreground">
+                Wholesale Applications
+              </h2>
+              <p className="font-sans text-sm text-muted-foreground mt-1">
+                Review and manage wholesale account applications from businesses
+                seeking bulk pricing access.
+              </p>
+            </div>
+            <WholesaleManagementPanel />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

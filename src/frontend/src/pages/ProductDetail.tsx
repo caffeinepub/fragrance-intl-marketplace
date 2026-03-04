@@ -17,7 +17,13 @@ import type { Product } from "../backend";
 import { RatingSummary } from "../components/reviews/RatingSummary";
 import { ReviewList } from "../components/reviews/ReviewList";
 import { SubmitReviewForm } from "../components/reviews/SubmitReviewForm";
-import { useAddToCart, useGetProduct } from "../hooks/useQueries";
+import WholesaleTierTable from "../components/wholesale/WholesaleTierTable";
+import {
+  useAddToCart,
+  useGetMyWholesaleAccount,
+  useGetProduct,
+  useGetWholesaleTiers,
+} from "../hooks/useQueries";
 
 function formatPrice(price: bigint | number): string {
   const num = typeof price === "bigint" ? Number(price) : price;
@@ -70,6 +76,19 @@ export default function ProductDetail() {
   const typedProduct = product as Product | null | undefined;
   const variants = typedProduct?.variants ?? [];
   const hasVariants = variants.length > 0;
+
+  // Real backend wholesale data
+  const { data: wholesaleTiers = [] } = useGetWholesaleTiers(productId);
+  const { data: myWholesaleAccount } = useGetMyWholesaleAccount();
+
+  const isWholesaleApproved = (() => {
+    if (!myWholesaleAccount) return false;
+    const s =
+      typeof myWholesaleAccount.status === "object"
+        ? Object.keys(myWholesaleAccount.status as object)[0]
+        : String(myWholesaleAccount.status);
+    return s === "approved";
+  })();
 
   // Auto-select the first variant when product loads and has variants
   useEffect(() => {
@@ -215,6 +234,14 @@ export default function ProductDetail() {
             <p className="text-muted-foreground leading-relaxed">
               {typedProduct.description}
             </p>
+          )}
+
+          {/* Wholesale Tier Table */}
+          {wholesaleTiers.length > 0 && (
+            <WholesaleTierTable
+              tiers={wholesaleTiers}
+              isWholesaleApproved={isWholesaleApproved}
+            />
           )}
 
           <Separator />

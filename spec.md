@@ -1,28 +1,33 @@
-# Fragrance.Intl Marketplace
+# Fragrance.Intl Marketplace Platform
 
 ## Current State
-The marketplace has a working backend with stores, products, variants, orders, Stripe payments, vendor payouts, and access control. Products are displayed with variant selection and dynamic pricing. The frontend shows product pages correctly.
+The backend (main.mo) has 766 lines covering: user profiles, store management, product/variant CRUD, Stripe checkout, order management, payouts, reviews/ratings, and access control. Wholesale features exist only as frontend mock data — no backend types, storage, or functions exist yet for wholesale accounts, tiers, or approvals.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `Review` type: `id`, `productId`, `storeId`, `reviewer` (Principal), `rating` (1–5), `title`, `body`, `createdAt`
-- `reviews` stable map: `productId -> List<Review>`
-- `submitReview(productId, storeId, rating, title, body)` — authenticated users only, one review per user per product
-- `getProductReviews(productId)` — public query returning `[Review]`
-- `getProductRatingSummary(productId)` — public query returning `{ averageRating: Float; totalReviews: Nat; distribution: [Nat] }` (distribution = count per star 1–5)
-- `deleteReview(productId, reviewId)` — admin/moderator only
+- `WholesaleTier` type: `{ minQty: Nat; pricePerUnit: Nat; label: Text }`
+- `WholesaleAccount` type: `{ id: Text; applicant: Principal; businessName: Text; taxId: Text; status: { #pending; #approved; #rejected }; createdAt: Int; reviewedBy: ?Principal; reviewedAt: ?Int }`
+- `wholesaleTiers` stable map: `productId -> [WholesaleTier]`
+- `wholesaleAccounts` stable map: `Principal -> WholesaleAccount`
+- `setWholesaleTiers(storeId, productId, tiers)` — store owner or admin sets tiered pricing for a product
+- `getWholesaleTiers(productId)` — public query returning tiers array
+- `registerWholesaleAccount(businessName, taxId)` — authenticated user applies for wholesale access
+- `getMyWholesaleAccount()` — caller views their own account
+- `listWholesaleApplications()` — admin/moderator lists all applications
+- `approveWholesaleAccount(applicant)` — admin approves an account
+- `rejectWholesaleAccount(applicant)` — admin rejects an account
+- `getWholesalePrice(productId, quantity)` — query returning the best applicable tier price for a given quantity (or base price if no tier matches)
 
 ### Modify
-- Nothing structural changed in existing types
+- None to existing types or functions
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Add `Review` type definition to main.mo
-2. Add `reviews` map (`productId -> List<Review>`)
-3. Implement `submitReview` with one-review-per-user guard
-4. Implement `getProductReviews` public query
-5. Implement `getProductRatingSummary` public query
-6. Implement `deleteReview` for admin/moderator
+1. Add `WholesaleTier` and `WholesaleAccount` type definitions to main.mo
+2. Add `wholesaleTiers` and `wholesaleAccounts` Map declarations
+3. Implement `setWholesaleTiers` and `getWholesaleTiers`
+4. Implement `registerWholesaleAccount`, `getMyWholesaleAccount`, and `getWholesalePrice`
+5. Implement `listWholesaleApplications`, `approveWholesaleAccount`, `rejectWholesaleAccount`

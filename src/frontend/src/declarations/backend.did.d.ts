@@ -93,6 +93,24 @@ export interface UserProfile {
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface WholesaleAccount {
+  'id' : string,
+  'status' : WholesaleAccountStatus,
+  'applicant' : Principal,
+  'taxId' : string,
+  'createdAt' : bigint,
+  'businessName' : string,
+  'reviewedAt' : [] | [bigint],
+  'reviewedBy' : [] | [Principal],
+}
+export type WholesaleAccountStatus = { 'pending' : null } |
+  { 'approved' : null } |
+  { 'rejected' : null };
+export interface WholesaleTier {
+  'tierLabel' : string,
+  'minQty' : bigint,
+  'pricePerUnit' : bigint,
+}
 export interface _CaffeineStorageCreateCertificateResult {
   'method' : string,
   'blob_hash' : string,
@@ -129,6 +147,7 @@ export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addProductToStore' : ActorMethod<[string, Product], undefined>,
   'addVariant' : ActorMethod<[string, string, ProductVariant], undefined>,
+  'approveWholesaleAccount' : ActorMethod<[Principal], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createCheckoutSession' : ActorMethod<
     [Array<ShoppingItem>, string, string],
@@ -141,6 +160,7 @@ export interface _SERVICE {
   'getAllStoreIds' : ActorMethod<[], Array<string>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getMyWholesaleAccount' : ActorMethod<[], [] | [WholesaleAccount]>,
   'getProduct' : ActorMethod<[string, string], [] | [Product]>,
   'getProductRatingSummary' : ActorMethod<
     [string],
@@ -154,15 +174,24 @@ export interface _SERVICE {
   'getStoresByVendor' : ActorMethod<[Principal], Array<StoreResponse>>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getWholesalePrice' : ActorMethod<[string, bigint], [] | [bigint]>,
+  'getWholesaleTiers' : ActorMethod<[string], Array<WholesaleTier>>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerApproved' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
   'listStoreProducts' : ActorMethod<[string], Array<Product>>,
+  'listWholesaleApplications' : ActorMethod<[], Array<WholesaleAccount>>,
+  'registerWholesaleAccount' : ActorMethod<[string, string], undefined>,
+  'rejectWholesaleAccount' : ActorMethod<[Principal], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
+  'setWholesaleTiers' : ActorMethod<
+    [string, string, Array<WholesaleTier>],
+    undefined
+  >,
   'submitReview' : ActorMethod<
     [string, string, bigint, string, string],
     undefined

@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeftRight,
+  Building2,
   Gavel,
   LogOut,
   Menu,
@@ -80,19 +81,29 @@ export default function Header() {
             <Link
               to="/products"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              data-ocid="nav.products_link"
             >
               Products
             </Link>
             <Link
               to="/auctions"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              data-ocid="nav.auctions_link"
             >
               Auctions
+            </Link>
+            <Link
+              to="/wholesale"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              data-ocid="nav.wholesale_link"
+            >
+              Wholesale
             </Link>
             {isAuthenticated && isApproved && (
               <Link
                 to="/vendor/dashboard"
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                data-ocid="nav.vendor_link"
               >
                 Vendor
               </Link>
@@ -101,6 +112,7 @@ export default function Header() {
               <Link
                 to="/admin"
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                data-ocid="nav.admin_link"
               >
                 Admin
               </Link>
@@ -142,6 +154,12 @@ export default function Header() {
                   >
                     <ArrowLeftRight className="w-4 h-4 mr-2" />
                     Trade Offers
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate({ to: "/wholesale" })}
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Wholesale
                   </DropdownMenuItem>
                   {isApproved && (
                     <DropdownMenuItem
@@ -207,6 +225,14 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Auctions
+            </Link>
+            <Link
+              to="/wholesale"
+              className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen(false)}
+              data-ocid="nav.wholesale_link"
+            >
+              Wholesale
             </Link>
             {isAuthenticated && (
               <>
