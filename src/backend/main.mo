@@ -17,10 +17,10 @@ import AccessControl "authorization/access-control";
 import UserApproval "user-approval/approval";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
-import Migration "migration";
 
 
-(with migration = Migration.run)
+
+
 actor {
   include MixinStorage();
   let accessControlState = AccessControl.initState();

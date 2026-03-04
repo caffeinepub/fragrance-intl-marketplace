@@ -11,6 +11,8 @@ interface OrderReviewProps {
   skipShipping?: boolean;
   onPay: () => void;
   isPaying?: boolean;
+  /** When true the Stripe pay button is hidden (Checkout handles it externally) */
+  hidePayButton?: boolean;
 }
 
 function formatPrice(cents: number): string {
@@ -27,6 +29,7 @@ export default function OrderReview({
   skipShipping = false,
   onPay,
   isPaying,
+  hidePayButton = false,
 }: OrderReviewProps) {
   const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -142,23 +145,25 @@ export default function OrderReview({
         </span>
       </div>
 
-      <Button
-        onClick={onPay}
-        disabled={isPaying}
-        className="w-full font-sans bg-gold text-background hover:bg-gold/90"
-      >
-        {isPaying ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Redirecting to Payment…
-          </>
-        ) : (
-          <>
-            <CreditCard className="w-4 h-4 mr-2" />
-            Pay with Stripe
-          </>
-        )}
-      </Button>
+      {!hidePayButton && (
+        <Button
+          onClick={onPay}
+          disabled={isPaying}
+          className="w-full font-sans bg-gold text-background hover:bg-gold/90"
+        >
+          {isPaying ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Redirecting to Payment…
+            </>
+          ) : (
+            <>
+              <CreditCard className="w-4 h-4 mr-2" />
+              Pay with Stripe
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 }

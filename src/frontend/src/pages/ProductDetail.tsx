@@ -18,12 +18,14 @@ import { RatingSummary } from "../components/reviews/RatingSummary";
 import { ReviewList } from "../components/reviews/ReviewList";
 import { SubmitReviewForm } from "../components/reviews/SubmitReviewForm";
 import WholesaleTierTable from "../components/wholesale/WholesaleTierTable";
+import { useWallet } from "../context/WalletContext";
 import {
   useAddToCart,
   useGetMyWholesaleAccount,
   useGetProduct,
   useGetWholesaleTiers,
 } from "../hooks/useQueries";
+import { convertFromUSD, formatCurrency } from "../utils/currency";
 
 function formatPrice(price: bigint | number): string {
   const num = typeof price === "bigint" ? Number(price) : price;
@@ -73,6 +75,7 @@ export default function ProductDetail() {
   >(null);
   const [addedToCart, setAddedToCart] = useState(false);
 
+  const { currency } = useWallet();
   const typedProduct = product as Product | null | undefined;
   const variants = typedProduct?.variants ?? [];
   const hasVariants = variants.length > 0;
@@ -218,16 +221,33 @@ export default function ProductDetail() {
           </div>
 
           {/* Dynamic price — updates immediately on variant change */}
-          <div className="flex items-baseline gap-3">
-            <div className="text-3xl font-bold text-primary">
-              {formatPrice(effectivePrice)}
+          <div className="space-y-1">
+            <div className="flex items-baseline gap-3">
+              <div className="text-3xl font-bold text-primary">
+                {formatPrice(effectivePrice)}
+              </div>
+              {selectedVariant &&
+                Number(selectedVariant.priceAdjustment) !== 0 && (
+                  <span className="text-sm text-muted-foreground line-through">
+                    {formatPrice(basePrice)}
+                  </span>
+                )}
             </div>
-            {selectedVariant &&
-              Number(selectedVariant.priceAdjustment) !== 0 && (
-                <span className="text-sm text-muted-foreground line-through">
-                  {formatPrice(basePrice)}
+            {currency !== "USD" && effectivePrice > 0 && (
+              <div
+                data-ocid="product_detail.currency_price"
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground bg-muted rounded-md px-2 py-1"
+              >
+                <span className="text-xs">≈</span>
+                <span className="font-medium">
+                  {formatCurrency(
+                    convertFromUSD(effectivePrice / 100, currency),
+                    currency,
+                  )}
                 </span>
-              )}
+                <span className="text-xs">{currency}</span>
+              </div>
+            )}
           </div>
 
           {typedProduct.description && (

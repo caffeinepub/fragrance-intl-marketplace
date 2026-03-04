@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
-import { Shield, ShoppingBag, Star, Truck } from "lucide-react";
+import { Radio, Shield, ShoppingBag, Star, Truck } from "lucide-react";
 import React from "react";
 import ProductGrid from "../components/products/ProductGrid";
 import { type LocalProduct, useSearchProducts } from "../hooks/useQueries";
@@ -129,6 +129,38 @@ export default function Home() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Live Streams Banner */}
+      <section className="py-8 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="relative overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-950/20 via-background to-red-950/10 px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative flex-shrink-0">
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                <Radio className="w-8 h-8 text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-serif text-lg text-foreground leading-tight">
+                  Watch Live Vendor Showcases
+                </h3>
+                <p className="font-sans text-sm text-muted-foreground">
+                  Vendors go live to present new arrivals, limited drops &amp;
+                  exclusive offers.
+                </p>
+              </div>
+            </div>
+            <Button
+              asChild
+              className="font-sans bg-red-600 hover:bg-red-700 text-white flex-shrink-0 gap-2"
+            >
+              <Link to="/live">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                Watch Now
+              </Link>
+            </Button>
           </div>
         </div>
       </section>

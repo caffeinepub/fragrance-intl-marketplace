@@ -11,6 +11,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeftRight,
   Building2,
+  Download,
   Gavel,
   LogOut,
   Menu,
@@ -18,6 +19,7 @@ import {
   Settings,
   ShoppingCart,
   User,
+  Wallet,
   X,
 } from "lucide-react";
 import React, { useState } from "react";
@@ -27,6 +29,7 @@ import {
   useIsCallerAdmin,
   useIsCallerApproved,
 } from "../../hooks/useQueries";
+import NotificationBell from "../notifications/NotificationBell";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -93,6 +96,14 @@ export default function Header() {
               Auctions
             </Link>
             <Link
+              to="/live"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              data-ocid="nav.live_link"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              Live
+            </Link>
+            <Link
               to="/wholesale"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               data-ocid="nav.wholesale_link"
@@ -122,14 +133,26 @@ export default function Header() {
           {/* Right Actions */}
           <div className="flex items-center gap-3">
             {isAuthenticated && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate({ to: "/cart" })}
-                aria-label="Cart"
-              >
-                <ShoppingCart className="w-5 h-5" />
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate({ to: "/wallet" })}
+                  aria-label="Wallet"
+                  data-ocid="header.wallet_link"
+                >
+                  <Wallet className="w-5 h-5" />
+                </Button>
+                <NotificationBell />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate({ to: "/cart" })}
+                  aria-label="Cart"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                </Button>
+              </>
             )}
 
             {isAuthenticated ? (
@@ -144,10 +167,24 @@ export default function Header() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem
+                    onClick={() => navigate({ to: "/wallet" })}
+                    data-ocid="header.wallet_link"
+                  >
+                    <Wallet className="w-4 h-4 mr-2" />
+                    My Wallet
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     onClick={() => navigate({ to: "/my-orders" })}
                   >
                     <Package className="w-4 h-4 mr-2" />
                     My Orders
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate({ to: "/my-downloads" })}
+                    data-ocid="header.my_downloads_link"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    My Downloads
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => navigate({ to: "/trade-offers" })}
@@ -227,6 +264,13 @@ export default function Header() {
               Auctions
             </Link>
             <Link
+              to="/live"
+              className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Live Streams
+            </Link>
+            <Link
               to="/wholesale"
               className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
               onClick={() => setMobileMenuOpen(false)}
@@ -236,6 +280,21 @@ export default function Header() {
             </Link>
             {isAuthenticated && (
               <>
+                <Link
+                  to="/wallet"
+                  className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                  data-ocid="header.wallet_link"
+                >
+                  My Wallet
+                </Link>
+                <Link
+                  to="/notifications"
+                  className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Notifications
+                </Link>
                 <Link
                   to="/cart"
                   className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
@@ -249,6 +308,14 @@ export default function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   My Orders
+                </Link>
+                <Link
+                  to="/my-downloads"
+                  className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                  data-ocid="header.my_downloads_link"
+                >
+                  My Downloads
                 </Link>
                 <Link
                   to="/trade-offers"

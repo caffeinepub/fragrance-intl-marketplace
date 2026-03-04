@@ -13,6 +13,7 @@ import React from "react";
 
 import Footer from "./components/layout/Footer";
 import Header from "./components/layout/Header";
+import { WalletProvider } from "./context/WalletContext";
 
 import AdminDashboard from "./pages/AdminDashboard";
 import AuctionDetail from "./pages/AuctionDetail";
@@ -20,10 +21,15 @@ import Auctions from "./pages/Auctions";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Home from "./pages/Home";
+import LiveStreamViewer from "./pages/LiveStreamViewer";
+import LiveStreams from "./pages/LiveStreams";
+import MyDownloads from "./pages/MyDownloads";
 import MyOrders from "./pages/MyOrders";
 import NewTradeOffer from "./pages/NewTradeOffer";
+import NotificationsPage from "./pages/NotificationsPage";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import OrderReceipt from "./pages/OrderReceipt";
+import OrderTracking from "./pages/OrderTracking";
 import PaymentCancel from "./pages/PaymentCancel";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import ProductDetail from "./pages/ProductDetail";
@@ -33,6 +39,7 @@ import VendorDashboard from "./pages/VendorDashboard";
 import VendorProducts from "./pages/VendorProducts";
 import VendorRegistration from "./pages/VendorRegistration";
 import VendorWholesalePricing from "./pages/VendorWholesalePricing";
+import Wallet from "./pages/Wallet";
 import WholesaleRegistration from "./pages/WholesaleRegistration";
 
 const queryClient = new QueryClient({
@@ -103,6 +110,12 @@ const myOrdersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/my-orders",
   component: MyOrders,
+});
+
+const myDownloadsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/my-downloads",
+  component: MyDownloads,
 });
 
 const orderReceiptRoute = createRoute({
@@ -183,6 +196,36 @@ const vendorWholesaleRoute = createRoute({
   component: VendorWholesalePricing,
 });
 
+const walletRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/wallet",
+  component: Wallet,
+});
+
+const orderTrackingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tracking/$trackingNumber",
+  component: OrderTracking,
+});
+
+const liveStreamsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/live",
+  component: LiveStreams,
+});
+
+const liveStreamViewerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/live/$streamId",
+  component: LiveStreamViewer,
+});
+
+const notificationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/notifications",
+  component: NotificationsPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   productsRoute,
@@ -191,6 +234,7 @@ const routeTree = rootRoute.addChildren([
   checkoutRoute,
   orderConfirmationRoute,
   myOrdersRoute,
+  myDownloadsRoute,
   orderReceiptRoute,
   vendorRegistrationRoute,
   vendorDashboardRoute,
@@ -204,6 +248,11 @@ const routeTree = rootRoute.addChildren([
   newTradeOfferRoute,
   wholesaleRoute,
   vendorWholesaleRoute,
+  walletRoute,
+  orderTrackingRoute,
+  liveStreamsRoute,
+  liveStreamViewerRoute,
+  notificationsRoute,
 ]);
 
 const router = createRouter({ routeTree });
@@ -218,8 +267,10 @@ export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-        <Toaster richColors position="top-right" />
+        <WalletProvider>
+          <RouterProvider router={router} />
+          <Toaster richColors position="top-right" />
+        </WalletProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

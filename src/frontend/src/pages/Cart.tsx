@@ -5,9 +5,11 @@ import React from "react";
 import type { Product as BackendProduct } from "../backend";
 import type { ProductStatus, ProductType } from "../backend";
 import CartSummary from "../components/cart/CartSummary";
+import { useWallet } from "../context/WalletContext";
 import { useGetCart, useGetProduct } from "../hooks/useQueries";
 import type { CartItem } from "../types";
 import type { Product } from "../types";
+import { convertFromUSD, formatCurrency } from "../utils/currency";
 
 function backendToLocalProduct(p: BackendProduct): Product {
   const productType: ProductType =
@@ -61,6 +63,7 @@ function ProductFetcher({
 export default function Cart() {
   const navigate = useNavigate();
   const { data: cartItems, isLoading: cartLoading } = useGetCart();
+  const { currency } = useWallet();
   const [resolvedProducts, setResolvedProducts] = React.useState<
     Map<string, Product>
   >(new Map());
@@ -90,6 +93,23 @@ export default function Cart() {
   );
 
   const products = Array.from(resolvedProducts.values());
+
+  // Compute subtotal in cents for currency conversion display
+  const subtotalCents = React.useMemo(() => {
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    return items.reduce((sum, item) => {
+      const product = productMap.get(item.productId);
+      if (!product) return sum;
+      const variant =
+        item.variantIndex !== undefined
+          ? product.variants?.[item.variantIndex]
+          : null;
+      const effectivePrice = variant
+        ? product.price + variant.priceAdjustment
+        : product.price;
+      return sum + effectivePrice * item.quantity;
+    }, 0);
+  }, [items, products]);
 
   if (cartLoading) {
     return (
@@ -138,6 +158,23 @@ export default function Cart() {
         products={products}
         onCheckout={() => navigate({ to: "/checkout" })}
       />
+      {/* Currency conversion total */}
+      {currency !== "USD" && subtotalCents > 0 && products.length > 0 && (
+        <div
+          data-ocid="cart.currency_total"
+          className="mt-3 flex items-center justify-between bg-primary/8 border border-primary/20 rounded-lg px-4 py-3"
+        >
+          <span className="text-sm text-muted-foreground">
+            Approx. total in {currency}
+          </span>
+          <span className="text-sm font-semibold text-primary tabular-nums">
+            {formatCurrency(
+              convertFromUSD(subtotalCents / 100, currency),
+              currency,
+            )}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
